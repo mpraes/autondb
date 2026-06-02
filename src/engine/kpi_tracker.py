@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+
+
+from src.constants import BYTES_PER_MB
 
 
 @dataclass
@@ -67,7 +70,7 @@ class KPITracker:
             )
 
         rps = self._rows_processed / elapsed
-        mb = self._bytes_processed / (1024 * 1024)
+        mb = self._bytes_processed / BYTES_PER_MB
         mbps = mb / elapsed
 
         eta: float | None = None

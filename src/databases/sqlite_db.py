@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from typing import Any
 
 import aiosqlite
 
+from src.constants import DEFAULT_BATCH_SIZE
 from src.databases.idatabase import ColumnSchema, IDatabase, Row, TableSchema
 
 _SQLITE_TYPE_MAP: dict[str, str] = {
@@ -14,6 +14,12 @@ _SQLITE_TYPE_MAP: dict[str, str] = {
     "BLOB": "BLOB",
     "NUMERIC": "NUMERIC",
 }
+
+
+def _validate_identifier(name: str) -> str:
+    if not name or not all(c.isalnum() or c == "_" for c in name):
+        raise ValueError(f"Invalid SQL identifier: '{name}'")
+    return name
 
 
 class SQLiteDB(IDatabase):
@@ -36,25 +42,32 @@ class SQLiteDB(IDatabase):
             await self._conn.close()
             self._conn = None
 
-    async def get_schema(self) -> list[TableSchema]:
-        self._assert_connected()
-        assert self._conn is not None
+    def _require_conn(self) -> aiosqlite.Connection:
+        if self._conn is None:
+            raise RuntimeError("SQLiteDB: not connected. Call connect() first.")
+        return self._conn
 
-        cursor = await self._conn.execute(
+    async def get_schema(self) -> list[TableSchema]:
+        conn = self._require_conn()
+
+        cursor = await conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
         )
         tables = [row["name"] for row in await cursor.fetchall()]
 
         result: list[TableSchema] = []
         for table_name in tables:
-            cursor = await self._conn.execute(f'PRAGMA table_info("{table_name}")')
+            _validate_identifier(table_name)
+            cursor = await conn.execute(f'PRAGMA table_info("{table_name}")')
             columns_raw = await cursor.fetchall()
             columns: list[ColumnSchema] = []
             for col in columns_raw:
                 columns.append(
                     ColumnSchema(
                         name=col["name"],
-                        type=_SQLITE_TYPE_MAP.get(col["type"].upper(), col["type"].upper()),
+                        type=_SQLITE_TYPE_MAP.get(
+                            col["type"].upper(), col["type"].upper()
+                        ),
                         nullable=col["notnull"] == 0,
                         default=col["dflt_value"],
                         is_primary_key=col["pk"] > 0,
@@ -64,58 +77,53 @@ class SQLiteDB(IDatabase):
         return result
 
     async def stream_data(
-        self, table: str, batch_size: int = 1000
+        self, table: str, batch_size: int = DEFAULT_BATCH_SIZE
     ) -> AsyncIterator[list[Row]]:
-        self._assert_connected()
-        assert self._conn is not None
+        conn = self._require_conn()
+        _validate_identifier(table)
 
-        cursor = await self._conn.execute(f'SELECT * FROM "{table}"')
+        cursor = await conn.execute(f'SELECT * FROM "{table}"')
         batch: list[Row] = []
         while True:
             rows = await cursor.fetchmany(batch_size)
             if not rows:
                 break
             for row in rows:
-                batch.append(
-                    Row(table=table, values=dict(row))
-                )
+                batch.append(Row(table=table, values=dict(row)))
             yield batch
             batch = []
 
     async def bulk_insert(self, table: str, rows: list[Row]) -> None:
-        self._assert_connected()
-        assert self._conn is not None
+        conn = self._require_conn()
+        _validate_identifier(table)
 
         if not rows:
             return
 
         columns = list(rows[0].values.keys())
+        for c in columns:
+            _validate_identifier(c)
         placeholders = ", ".join("?" for _ in columns)
         col_names = ", ".join(f'"{c}"' for c in columns)
         sql = f'INSERT INTO "{table}" ({col_names}) VALUES ({placeholders})'
 
         values = [tuple(r.values[c] for c in columns) for r in rows]
-        await self._conn.executemany(sql, values)
-        await self._conn.commit()
+        await conn.executemany(sql, values)
+        await conn.commit()
 
     async def execute_ddl(self, ddl: str) -> None:
-        self._assert_connected()
-        assert self._conn is not None
+        conn = self._require_conn()
 
         for stmt in ddl.split(";"):
             stmt = stmt.strip()
             if stmt:
-                await self._conn.execute(stmt)
-        await self._conn.commit()
+                await conn.execute(stmt)
+        await conn.commit()
 
     async def get_row_count(self, table: str) -> int:
-        self._assert_connected()
-        assert self._conn is not None
+        conn = self._require_conn()
+        _validate_identifier(table)
 
-        cursor = await self._conn.execute(f'SELECT COUNT(*) FROM "{table}"')
+        cursor = await conn.execute(f'SELECT COUNT(*) FROM "{table}"')
         row = await cursor.fetchone()
         return row[0] if row else 0
-
-    def _assert_connected(self) -> None:
-        if self._conn is None:
-            raise RuntimeError("SQLiteDB: not connected. Call connect() first.")

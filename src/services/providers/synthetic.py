@@ -31,8 +31,15 @@ class SyntheticProvider(AIProvider):
         "is_clean": True,
     }
 
-    def __init__(self, schema_response: dict | None = None) -> None:
+    def __init__(
+        self,
+        schema_response: dict | None = None,
+        sanitization_response: dict | None = None,
+    ) -> None:
         self._schema_response = schema_response or self._SCHEMA_MAPPING_RESPONSE
+        self._sanitization_response = (
+            sanitization_response or self._SANITIZATION_RESPONSE
+        )
 
     @property
     def provider_name(self) -> str:
@@ -41,11 +48,18 @@ class SyntheticProvider(AIProvider):
     async def complete(self, system: str, user: str) -> str:
         import json
 
-        if "schema" in user.lower() or "mapping" in system.lower():
-            return json.dumps(self._schema_response)
-        return json.dumps(self._SANITIZATION_RESPONSE)
+        response = self._select_response(system, user)
+        return json.dumps(response)
 
     async def complete_json(self, system: str, user: str) -> dict:
-        if "schema" in user.lower() or "mapping" in system.lower():
+        return self._select_response(system, user)
+
+    def _select_response(self, system: str, user: str) -> dict:
+        if self._is_schema_request(system, user):
             return self._schema_response
-        return self._SANITIZATION_RESPONSE
+        return self._sanitization_response
+
+    @staticmethod
+    def _is_schema_request(system: str, user: str) -> bool:
+        combined = f"{system} {user}".lower()
+        return "schema" in combined or "mapping" in combined or "ddl" in combined

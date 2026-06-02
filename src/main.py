@@ -2,35 +2,16 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import sys
 
-from src.databases.idatabase import IDatabase
-from src.databases.mysql_db import MySQLDB
-from src.databases.postgres_db import PostgresDB
-from src.databases.sqlite_db import SQLiteDB
+from src.constants import DEFAULT_BATCH_SIZE
+from src.databases.factory import DIALECTS, build_db
 from src.engine.migration import MigrationEngine
 from src.services.ai_service import AIService
 
-_DIALECTS = {
-    "sqlite": lambda dsn: SQLiteDB(dsn),
-    "postgresql": lambda dsn: PostgresDB(dsn),
-    "mysql": lambda dsn: MySQLDB(dsn),
-}
-
-
-def _build_db(dialect: str, dsn: str) -> IDatabase:
-    factory = _DIALECTS.get(dialect)
-    if factory is None:
-        raise ValueError(
-            f"Unsupported dialect: '{dialect}'. "
-            f"Supported: {', '.join(sorted(_DIALECTS))}"
-        )
-    return factory(dsn)
-
 
 async def run_migration(args: argparse.Namespace) -> None:
-    source = _build_db(args.source_dialect, args.source_dsn)
-    target = _build_db(args.target_dialect, args.target_dsn)
+    source = build_db(args.source_dialect, args.source_dsn)
+    target = build_db(args.target_dialect, args.target_dsn)
 
     ai = AIService.from_env(provider_name=args.ai_provider, model=args.ai_model)
 
@@ -46,7 +27,9 @@ async def run_migration(args: argparse.Namespace) -> None:
             print(f"\nTable: {table.source_table} → {table.target_table}")
             for col in table.columns:
                 transform = f"  [transform: {col.transform}]" if col.transform else ""
-                print(f"  {col.source_name} ({col.source_type}) → {col.target_name} ({col.target_type}){transform}")
+                print(
+                    f"  {col.source_name} ({col.source_type}) → {col.target_name} ({col.target_type}){transform}"
+                )
 
         if mapping.warnings:
             print("\n=== Warnings ===")
@@ -67,7 +50,9 @@ async def run_migration(args: argparse.Namespace) -> None:
             target=target,
             mapping=mapping,
             batch_size=args.batch_size,
-            on_progress=lambda kpi: print(f"\r  {kpi.format_snapshot()}", end="", flush=True),
+            on_progress=lambda kpi: print(
+                f"\r  {kpi.format_snapshot()}", end="", flush=True
+            ),
         )
 
         print("\n=== Starting Migration ===")
@@ -76,7 +61,9 @@ async def run_migration(args: argparse.Namespace) -> None:
 
         print(audit.summary())
         if not audit.all_match:
-            print("\nSome tables have row count mismatches — manual review recommended.")
+            print(
+                "\nSome tables have row count mismatches — manual review recommended."
+            )
 
     finally:
         await source.disconnect()
@@ -88,14 +75,49 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         prog="autondb",
         description="AI-assisted database migration tool",
     )
-    parser.add_argument("--source-dsn", required=True, help="Source database connection string or file path")
-    parser.add_argument("--source-dialect", required=True, choices=sorted(_DIALECTS), help="Source database dialect")
-    parser.add_argument("--target-dsn", required=True, help="Target database connection string or file path")
-    parser.add_argument("--target-dialect", required=True, choices=sorted(_DIALECTS), help="Target database dialect")
-    parser.add_argument("--ai-provider", default=None, help="AI provider (openai, groq, openrouter, anthropic, synthetic)")
-    parser.add_argument("--ai-model", default=None, help="AI model name (overrides default for provider)")
-    parser.add_argument("--batch-size", type=int, default=1000, help="Rows per batch during migration (default: 1000)")
-    parser.add_argument("--auto-approve", action="store_true", help="Skip approval prompt and start migration automatically")
+    parser.add_argument(
+        "--source-dsn",
+        required=True,
+        help="Source database connection string or file path",
+    )
+    parser.add_argument(
+        "--source-dialect",
+        required=True,
+        choices=sorted(DIALECTS),
+        help="Source database dialect",
+    )
+    parser.add_argument(
+        "--target-dsn",
+        required=True,
+        help="Target database connection string or file path",
+    )
+    parser.add_argument(
+        "--target-dialect",
+        required=True,
+        choices=sorted(DIALECTS),
+        help="Target database dialect",
+    )
+    parser.add_argument(
+        "--ai-provider",
+        default=None,
+        help="AI provider (openai, groq, openrouter, anthropic, synthetic)",
+    )
+    parser.add_argument(
+        "--ai-model",
+        default=None,
+        help="AI model name (overrides default for provider)",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=DEFAULT_BATCH_SIZE,
+        help=f"Rows per batch during migration (default: {DEFAULT_BATCH_SIZE})",
+    )
+    parser.add_argument(
+        "--auto-approve",
+        action="store_true",
+        help="Skip approval prompt and start migration automatically",
+    )
     return parser.parse_args(argv)
 
 

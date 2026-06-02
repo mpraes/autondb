@@ -18,7 +18,9 @@ def sample_schema() -> list[TableSchema]:
         TableSchema(
             name="users",
             columns=[
-                ColumnSchema(name="id", type="INTEGER", nullable=False, is_primary_key=True),
+                ColumnSchema(
+                    name="id", type="INTEGER", nullable=False, is_primary_key=True
+                ),
                 ColumnSchema(name="email", type="TEXT", nullable=False),
                 ColumnSchema(name="created_at", type="TEXT", nullable=True),
             ],
@@ -52,14 +54,18 @@ def sample_stats() -> list[ColumnStats]:
 
 class TestSchemaMappingPrompt:
     def test_returns_system_and_user(self, sample_schema: list[TableSchema]) -> None:
-        system, user = build_schema_mapping_prompt(sample_schema, "sqlite", "postgresql")
+        system, user = build_schema_mapping_prompt(
+            sample_schema, "sqlite", "postgresql"
+        )
         assert "migration expert" in system
         assert "sqlite" in user.lower()
         assert "postgresql" in user.lower()
         assert "users" in user
 
     def test_includes_json_schema(self, sample_schema: list[TableSchema]) -> None:
-        system, user = build_schema_mapping_prompt(sample_schema, "sqlite", "postgresql")
+        system, user = build_schema_mapping_prompt(
+            sample_schema, "sqlite", "postgresql"
+        )
         assert "tables" in system
         assert "columns" in system
 
@@ -94,7 +100,9 @@ class TestSyntheticProvider:
     @pytest.mark.asyncio
     async def test_sanitization_response(self) -> None:
         provider = SyntheticProvider()
-        result = await provider.complete_json("system", "analyze data quality")
+        result = await provider.complete_json(
+            "data quality analyst", "analyze data compatibility"
+        )
         assert "issues" in result
         assert "is_clean" in result
 

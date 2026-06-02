@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 from collections.abc import AsyncIterator
 from typing import Any
 
@@ -12,7 +11,7 @@ from src.engine.integrity_audit import (
     TableAuditResult,
     run_integrity_audit,
 )
-from src.engine.kpi_tracker import KPISnapshot, KPITracker
+from src.engine.kpi_tracker import KPITracker
 from src.engine.migration import MigrationEngine, MigrationError, _apply_transform
 from src.services.models import ColumnMapping, SchemaMapping, TableMapping
 
@@ -37,10 +36,7 @@ class InMemoryDB(IDatabase):
         for table_name, rows in self._tables.items():
             if not rows:
                 continue
-            columns = [
-                ColumnSchema(name=col, type="TEXT")
-                for col in rows[0]
-            ]
+            columns = [ColumnSchema(name=col, type="TEXT") for col in rows[0]]
             result.append(TableSchema(name=table_name, columns=columns))
         return result
 
@@ -197,7 +193,9 @@ class TestIntegrityAudit:
         r = TableAuditResult(table="test", source_count=10, target_count=10, match=True)
         assert r.discrepancy == 0
 
-        r2 = TableAuditResult(table="test", source_count=10, target_count=8, match=False)
+        r2 = TableAuditResult(
+            table="test", source_count=10, target_count=8, match=False
+        )
         assert r2.discrepancy == 2
 
     def test_report_summary_pass(self) -> None:
@@ -258,13 +256,15 @@ class TestMigrationEngine:
 
     @pytest.mark.asyncio
     async def test_full_migration(self, sample_mapping: SchemaMapping) -> None:
-        source = InMemoryDB({
-            "users": [
-                {"id": 1, "name": "Alice"},
-                {"id": 2, "name": "Bob"},
-                {"id": 3, "name": "Carol"},
-            ]
-        })
+        source = InMemoryDB(
+            {
+                "users": [
+                    {"id": 1, "name": "Alice"},
+                    {"id": 2, "name": "Bob"},
+                    {"id": 3, "name": "Carol"},
+                ]
+            }
+        )
         target = InMemoryDB()
         await source.connect()
         await target.connect()
@@ -287,9 +287,9 @@ class TestMigrationEngine:
 
     @pytest.mark.asyncio
     async def test_kpi_tracking(self, sample_mapping: SchemaMapping) -> None:
-        source = InMemoryDB({
-            "users": [{"id": i, "name": f"user_{i}"} for i in range(5)]
-        })
+        source = InMemoryDB(
+            {"users": [{"id": i, "name": f"user_{i}"} for i in range(5)]}
+        )
         target = InMemoryDB()
         await source.connect()
         await target.connect()
@@ -314,13 +314,13 @@ class TestMigrationEngine:
         await target.disconnect()
 
     @pytest.mark.asyncio
-    async def test_constraints_re_enabled_on_error(self, sample_mapping: SchemaMapping) -> None:
+    async def test_constraints_re_enabled_on_error(
+        self, sample_mapping: SchemaMapping
+    ) -> None:
         source = InMemoryDB({"users": [{"id": 1, "name": "Alice"}]})
         target = InMemoryDB()
         await source.connect()
         await target.connect()
-
-        original_bulk_insert = target.bulk_insert
 
         async def failing_bulk_insert(table: str, rows: list[Row]) -> None:
             raise RuntimeError("insert failed")
@@ -391,7 +391,9 @@ class TestApplyTransform:
         assert _apply_transform(42, "CAST(value AS TEXT)") == "42"
 
     def test_invalid_cast_returns_original(self) -> None:
-        assert _apply_transform("not_a_number", "CAST(value AS INTEGER)") == "not_a_number"
+        assert (
+            _apply_transform("not_a_number", "CAST(value AS INTEGER)") == "not_a_number"
+        )
 
     def test_non_cast_returns_original(self) -> None:
         assert _apply_transform("hello", "UPPER(value)") == "hello"

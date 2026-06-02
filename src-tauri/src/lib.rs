@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::process::Command;
-use tauri::{Emitter, Manager};
+use tauri::Emitter;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct MigrationConfig {

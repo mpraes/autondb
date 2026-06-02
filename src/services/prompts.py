@@ -27,8 +27,7 @@ def build_schema_mapping_prompt(
         "needed during migration (e.g., CAST, date format change).\n"
         "6. Add any compatibility concerns to the 'warnings' list.\n"
         "7. You MUST respond with valid JSON matching the schema below — no markdown.\n\n"
-        "JSON schema:\n"
-        + json.dumps(SchemaMapping.model_json_schema(), indent=2)
+        "JSON schema:\n" + json.dumps(SchemaMapping.model_json_schema(), indent=2)
     )
 
     user = (

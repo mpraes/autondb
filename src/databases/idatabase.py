@@ -5,6 +5,8 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
 
+from src.constants import DEFAULT_BATCH_SIZE
+
 
 @dataclass(frozen=True)
 class ColumnSchema:
@@ -47,7 +49,9 @@ class IDatabase(ABC):
         """Return the full schema of the database as a list of TableSchema."""
 
     @abstractmethod
-    async def stream_data(self, table: str, batch_size: int = 1000) -> AsyncIterator[list[Row]]:
+    async def stream_data(
+        self, table: str, batch_size: int = DEFAULT_BATCH_SIZE
+    ) -> AsyncIterator[list[Row]]:
         """Yield batches of rows from the given table.
 
         Args:

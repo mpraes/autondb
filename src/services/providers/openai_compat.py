@@ -1,18 +1,9 @@
 from __future__ import annotations
 
-import json
-import re
-
 from openai import AsyncOpenAI
 
+from src.services.providers._json_utils import extract_json
 from src.services.providers.base import AIProvider
-
-
-def _extract_json(text: str) -> dict:
-    match = re.search(r"```(?:json)?\s*\n?(.*?)\n?\s*```", text, re.DOTALL)
-    if match:
-        return json.loads(match.group(1).strip())
-    return json.loads(text.strip())
 
 
 class OpenAICompatProvider(AIProvider):
@@ -51,4 +42,4 @@ class OpenAICompatProvider(AIProvider):
             response_format={"type": "json_object"},
         )
         raw = response.choices[0].message.content or "{}"
-        return _extract_json(raw)
+        return extract_json(raw)

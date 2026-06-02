@@ -44,7 +44,11 @@ class SchemaMapping(BaseModel):
                     pk_cols.append(f'"{col.target_name}"')
             if pk_cols:
                 col_defs.append("  PRIMARY KEY (" + ", ".join(pk_cols) + ")")
-            stmt = f'CREATE TABLE "{table.target_table}" (\n' + ",\n".join(col_defs) + "\n);"
+            stmt = (
+                f'CREATE TABLE "{table.target_table}" (\n'
+                + ",\n".join(col_defs)
+                + "\n);"
+            )
             statements.append(stmt)
         return "\n\n".join(statements)
 

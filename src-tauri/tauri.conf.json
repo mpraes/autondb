@@ -5,7 +5,6 @@
   "identifier": "com.autondb.app",
   "build": {
     "frontendDist": "../ui",
-    "devUrl": "http://localhost:1420",
     "beforeBuildCommand": "",
     "beforeDevCommand": ""
   },

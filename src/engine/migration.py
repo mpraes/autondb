@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-import sys
 from collections.abc import Callable
 
+from src.constants import DEFAULT_BATCH_SIZE
 from src.databases.idatabase import IDatabase, Row
 from src.engine.integrity_audit import IntegrityAuditReport, run_integrity_audit
 from src.engine.kpi_tracker import KPITracker
-from src.services.models import SchemaMapping, TableMapping
+from src.services.models import ColumnMapping, SchemaMapping, TableMapping
 
 
 class MigrationError(Exception):
@@ -25,7 +25,7 @@ class MigrationEngine:
         source: IDatabase,
         target: IDatabase,
         mapping: SchemaMapping,
-        batch_size: int = 1000,
+        batch_size: int = DEFAULT_BATCH_SIZE,
         on_progress: Callable[[KPITracker], None] | None = None,
     ) -> None:
         self._source = source
@@ -63,14 +63,16 @@ class MigrationEngine:
             try:
                 await self._target.enable_constraints()
             except Exception:
-                pass
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    "Failed to re-enable constraints after error", exc_info=True
+                )
             raise MigrationError(f"Migration failed: {exc}") from exc
         finally:
             self._kpi.stop()
 
-        return await run_integrity_audit(
-            self._source, self._target, table_names
-        )
+        return await run_integrity_audit(self._source, self._target, table_names)
 
     async def _estimate_total_rows(self, table_names: list[str]) -> int:
         total = 0
@@ -91,17 +93,13 @@ class MigrationEngine:
     async def _migrate_table(self, table_mapping: TableMapping) -> None:
         source_table = table_mapping.source_table
         target_table = table_mapping.target_table
-        column_map = {
-            col.source_name: col for col in table_mapping.columns
-        }
+        column_map = {col.source_name: col for col in table_mapping.columns}
 
         async for batch in self._source.stream_data(source_table, self._batch_size):
             transformed = self._transform_batch(batch, target_table, column_map)
             await self._target.bulk_insert(target_table, transformed)
 
-            byte_size = sum(
-                len(str(r.values).encode("utf-8")) for r in transformed
-            )
+            byte_size = sum(len(str(r.values).encode("utf-8")) for r in transformed)
             self._kpi.add_rows(len(transformed), byte_size)
 
             if self._on_progress:
@@ -111,9 +109,8 @@ class MigrationEngine:
     def _transform_batch(
         batch: list[Row],
         target_table: str,
-        column_map: dict[str, object],
+        column_map: dict[str, ColumnMapping],
     ) -> list[Row]:
-        from src.services.models import ColumnMapping
 
         transformed: list[Row] = []
         for row in batch:
@@ -122,7 +119,6 @@ class MigrationEngine:
                 col = column_map.get(source_name)
                 if col is None:
                     continue
-                assert isinstance(col, ColumnMapping)
                 target_name = col.target_name
                 if col.transform and value is not None:
                     new_values[target_name] = _apply_transform(value, col.transform)
@@ -147,7 +143,14 @@ def _apply_transform(value: object, transform_expr: str) -> object:
             type_part = upper.rsplit("AS", 1)[-1].rstrip(")").strip()
             if type_part in ("INTEGER", "INT", "BIGINT", "SMALLINT"):
                 return int(value)
-            if type_part in ("REAL", "FLOAT", "DOUBLE", "DOUBLE PRECISION", "NUMERIC", "DECIMAL"):
+            if type_part in (
+                "REAL",
+                "FLOAT",
+                "DOUBLE",
+                "DOUBLE PRECISION",
+                "NUMERIC",
+                "DECIMAL",
+            ):
                 return float(value)
             if type_part in ("TEXT", "VARCHAR", "CHAR", "VARCHAR(255)"):
                 return str(value)

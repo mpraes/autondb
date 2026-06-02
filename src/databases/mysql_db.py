@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from typing import Any
 
 import aiomysql
 
+from src.constants import (
+    DEFAULT_BATCH_SIZE,
+    DEFAULT_POOL_MIN_SIZE,
+    DEFAULT_POOL_MAX_SIZE,
+)
 from src.databases.idatabase import ColumnSchema, IDatabase, Row, TableSchema
 
 _MYSQL_TYPE_MAP: dict[str, str] = {
@@ -34,6 +38,12 @@ _MYSQL_TYPE_MAP: dict[str, str] = {
 }
 
 
+def _validate_identifier(name: str) -> str:
+    if not name or not all(c.isalnum() or c == "_" for c in name):
+        raise ValueError(f"Invalid SQL identifier: '{name}'")
+    return name
+
+
 class MySQLDB(IDatabase):
     """Async MySQL connector using aiomysql.
 
@@ -46,7 +56,12 @@ class MySQLDB(IDatabase):
         self._pool: aiomysql.Pool | None = None
 
     async def connect(self) -> None:
-        self._pool = await aiomysql.create_pool(self._dsn, minsize=2, maxsize=10, autocommit=True)
+        self._pool = await aiomysql.create_pool(
+            self._dsn,
+            minsize=DEFAULT_POOL_MIN_SIZE,
+            maxsize=DEFAULT_POOL_MAX_SIZE,
+            autocommit=True,
+        )
 
     async def disconnect(self) -> None:
         if self._pool:
@@ -54,11 +69,15 @@ class MySQLDB(IDatabase):
             await self._pool.wait_closed()
             self._pool = None
 
-    async def get_schema(self) -> list[TableSchema]:
-        self._assert_connected()
-        assert self._pool is not None
+    def _require_pool(self) -> aiomysql.Pool:
+        if self._pool is None:
+            raise RuntimeError("MySQLDB: not connected. Call connect() first.")
+        return self._pool
 
-        async with self._pool.acquire() as conn:
+    async def get_schema(self) -> list[TableSchema]:
+        pool = self._require_pool()
+
+        async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 await cur.execute(
                     "SELECT TABLE_NAME FROM information_schema.TABLES "
@@ -68,6 +87,7 @@ class MySQLDB(IDatabase):
 
             result: list[TableSchema] = []
             for table_name in tables:
+                _validate_identifier(table_name)
                 async with conn.cursor() as cur:
                     await cur.execute(
                         "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT, COLUMN_KEY "
@@ -93,46 +113,44 @@ class MySQLDB(IDatabase):
             return result
 
     async def stream_data(
-        self, table: str, batch_size: int = 1000
+        self, table: str, batch_size: int = DEFAULT_BATCH_SIZE
     ) -> AsyncIterator[list[Row]]:
-        self._assert_connected()
-        assert self._pool is not None
+        pool = self._require_pool()
+        _validate_identifier(table)
 
-        async with self._pool.acquire() as conn:
+        async with pool.acquire() as conn:
             async with conn.cursor(aiomysql.DictCursor) as cur:
-                await cur.execute(f'SELECT * FROM `{table}`')
+                await cur.execute(f"SELECT * FROM `{table}`")
                 while True:
                     rows = await cur.fetchmany(batch_size)
                     if not rows:
                         break
-                    yield [
-                        Row(table=table, values=dict(r))
-                        for r in rows
-                    ]
+                    yield [Row(table=table, values=dict(r)) for r in rows]
 
     async def bulk_insert(self, table: str, rows: list[Row]) -> None:
-        self._assert_connected()
-        assert self._pool is not None
+        pool = self._require_pool()
+        _validate_identifier(table)
 
         if not rows:
             return
 
         columns = list(rows[0].values.keys())
+        for c in columns:
+            _validate_identifier(c)
         col_names = ", ".join(f"`{c}`" for c in columns)
         placeholders = ", ".join("%s" for _ in columns)
         sql = f"INSERT INTO `{table}` ({col_names}) VALUES ({placeholders})"
 
         values = [tuple(r.values[c] for c in columns) for r in rows]
 
-        async with self._pool.acquire() as conn:
+        async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 await cur.executemany(sql, values)
 
     async def execute_ddl(self, ddl: str) -> None:
-        self._assert_connected()
-        assert self._pool is not None
+        pool = self._require_pool()
 
-        async with self._pool.acquire() as conn:
+        async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 for stmt in ddl.split(";"):
                     stmt = stmt.strip()
@@ -140,31 +158,25 @@ class MySQLDB(IDatabase):
                         await cur.execute(stmt)
 
     async def get_row_count(self, table: str) -> int:
-        self._assert_connected()
-        assert self._pool is not None
+        pool = self._require_pool()
+        _validate_identifier(table)
 
-        async with self._pool.acquire() as conn:
+        async with pool.acquire() as conn:
             async with conn.cursor() as cur:
-                await cur.execute(f'SELECT COUNT(*) FROM `{table}`')
+                await cur.execute(f"SELECT COUNT(*) FROM `{table}`")
                 row = await cur.fetchone()
                 return row[0] if row else 0
 
     async def disable_constraints(self) -> None:
-        self._assert_connected()
-        assert self._pool is not None
+        pool = self._require_pool()
 
-        async with self._pool.acquire() as conn:
+        async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 await cur.execute("SET FOREIGN_KEY_CHECKS = 0")
 
     async def enable_constraints(self) -> None:
-        self._assert_connected()
-        assert self._pool is not None
+        pool = self._require_pool()
 
-        async with self._pool.acquire() as conn:
+        async with pool.acquire() as conn:
             async with conn.cursor() as cur:
                 await cur.execute("SET FOREIGN_KEY_CHECKS = 1")
-
-    def _assert_connected(self) -> None:
-        if self._pool is None:
-            raise RuntimeError("MySQLDB: not connected. Call connect() first.")

@@ -22,50 +22,54 @@
       <section id="screen-config" class="screen active">
         <h2>Configurar Migração</h2>
         <form id="config-form">
-          <fieldset>
-            <legend>Banco de Origem</legend>
-            <label for="source-dialect">Dialeto</label>
-            <select id="source-dialect" required>
-              <option value="sqlite">SQLite</option>
-              <option value="postgresql">PostgreSQL</option>
-              <option value="mysql">MySQL</option>
-            </select>
-            <label for="source-dsn">String de Conexão / Caminho</label>
-            <input id="source-dsn" type="text" placeholder="ex: ./db.sqlite ou postgres://user:pass@host/db" required />
-          </fieldset>
+          <div class="form-row">
+            <fieldset>
+              <legend>Banco de Origem</legend>
+              <label for="source-dialect">Dialeto</label>
+              <select id="source-dialect" required>
+                <option value="sqlite">SQLite</option>
+                <option value="postgresql">PostgreSQL</option>
+                <option value="mysql">MySQL</option>
+              </select>
+              <label for="source-dsn">String de Conexão / Caminho</label>
+              <input id="source-dsn" type="text" placeholder="ex: ./db.sqlite ou postgres://user:pass@host/db" required />
+            </fieldset>
 
-          <fieldset>
-            <legend>Banco de Destino</legend>
-            <label for="target-dialect">Dialeto</label>
-            <select id="target-dialect" required>
-              <option value="postgresql">PostgreSQL</option>
-              <option value="mysql">MySQL</option>
-              <option value="sqlite">SQLite</option>
-            </select>
-            <label for="target-dsn">String de Conexão / Caminho</label>
-            <input id="target-dsn" type="text" placeholder="ex: postgres://user:pass@host/db" required />
-          </fieldset>
+            <fieldset>
+              <legend>Banco de Destino</legend>
+              <label for="target-dialect">Dialeto</label>
+              <select id="target-dialect" required>
+                <option value="postgresql">PostgreSQL</option>
+                <option value="mysql">MySQL</option>
+                <option value="sqlite">SQLite</option>
+              </select>
+              <label for="target-dsn">String de Conexão / Caminho</label>
+              <input id="target-dsn" type="text" placeholder="ex: postgres://user:pass@host/db" required />
+            </fieldset>
+          </div>
 
-          <fieldset>
-            <legend>IA (Mapeamento de Schema)</legend>
-            <label for="ai-provider">Provedor</label>
-            <select id="ai-provider">
-              <option value="openai">OpenAI</option>
-              <option value="groq">Groq</option>
-              <option value="openrouter">OpenRouter</option>
-              <option value="anthropic">Anthropic</option>
-            </select>
-            <label for="ai-model">Modelo (opcional)</label>
-            <input id="ai-model" type="text" placeholder="ex: gpt-4o" />
-            <label for="ai-key">API Key</label>
-            <input id="ai-key" type="password" placeholder="sk-..." required />
-          </fieldset>
+          <div class="form-row">
+            <fieldset>
+              <legend>IA (Mapeamento de Schema)</legend>
+              <label for="ai-provider">Provedor</label>
+              <select id="ai-provider">
+                <option value="openai">OpenAI</option>
+                <option value="groq">Groq</option>
+                <option value="openrouter">OpenRouter</option>
+                <option value="anthropic">Anthropic</option>
+              </select>
+              <label for="ai-model">Modelo (opcional)</label>
+              <input id="ai-model" type="text" placeholder="ex: gpt-4o" />
+              <label for="ai-key">API Key</label>
+              <input id="ai-key" type="password" placeholder="sk-..." required />
+            </fieldset>
 
-          <fieldset>
-            <legend>Opções</legend>
-            <label for="batch-size">Tamanho do Lote</label>
-            <input id="batch-size" type="number" value="1000" min="100" max="50000" />
-          </fieldset>
+            <fieldset>
+              <legend>Opções</legend>
+              <label for="batch-size">Tamanho do Lote</label>
+              <input id="batch-size" type="number" value="1000" min="100" max="50000" />
+            </fieldset>
+          </div>
 
           <button type="submit" class="btn-primary" id="btn-analyze">Analisar Schema</button>
         </form>

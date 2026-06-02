@@ -1,18 +1,10 @@
 from __future__ import annotations
 
-import json
-import re
-
 from anthropic import AsyncAnthropic
 
+from src.constants import DEFAULT_AI_MAX_TOKENS
+from src.services.providers._json_utils import extract_json
 from src.services.providers.base import AIProvider
-
-
-def _extract_json(text: str) -> dict:
-    match = re.search(r"```(?:json)?\s*\n?(.*?)\n?\s*```", text, re.DOTALL)
-    if match:
-        return json.loads(match.group(1).strip())
-    return json.loads(text.strip())
 
 
 class AnthropicProvider(AIProvider):
@@ -27,7 +19,7 @@ class AnthropicProvider(AIProvider):
     async def complete(self, system: str, user: str) -> str:
         response = await self._client.messages.create(
             model=self._model,
-            max_tokens=4096,
+            max_tokens=DEFAULT_AI_MAX_TOKENS,
             system=system,
             messages=[{"role": "user", "content": user}],
         )
@@ -40,9 +32,9 @@ class AnthropicProvider(AIProvider):
         )
         response = await self._client.messages.create(
             model=self._model,
-            max_tokens=4096,
+            max_tokens=DEFAULT_AI_MAX_TOKENS,
             system=system_enforced,
             messages=[{"role": "user", "content": user}],
         )
         raw = response.content[0].text
-        return _extract_json(raw)
+        return extract_json(raw)

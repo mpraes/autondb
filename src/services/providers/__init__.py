@@ -4,6 +4,7 @@ import os
 
 from dotenv import load_dotenv
 
+from src.constants import DEFAULT_AI_MODEL
 from src.services.providers.base import AIProvider
 from src.services.providers.openai_compat import OpenAICompatProvider
 from src.services.providers.anthropic_provider import AnthropicProvider
@@ -12,7 +13,7 @@ from src.services.providers.synthetic import SyntheticProvider
 load_dotenv()
 
 _DEFAULT_MODELS: dict[str, str] = {
-    "openai": "gpt-4o",
+    "openai": DEFAULT_AI_MODEL,
     "groq": "llama-3.3-70b-versatile",
     "openrouter": "openai/gpt-4o",
     "anthropic": "claude-sonnet-4-20250514",
@@ -25,13 +26,15 @@ _OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
 def create_provider(name: str, model: str | None = None) -> AIProvider:
     name = name.lower()
-    model = model or _DEFAULT_MODELS.get(name, "gpt-4o")
+    model = model or _DEFAULT_MODELS.get(name, DEFAULT_AI_MODEL)
 
     if name == "openai":
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             raise ValueError("OPENAI_API_KEY environment variable is required")
-        return OpenAICompatProvider(api_key=api_key, model=model, provider_label="openai")
+        return OpenAICompatProvider(
+            api_key=api_key, model=model, provider_label="openai"
+        )
 
     if name == "groq":
         api_key = os.getenv("GROQ_API_KEY")

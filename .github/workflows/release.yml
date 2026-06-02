@@ -99,7 +99,7 @@ jobs:
             sidecar_name: autondb-core-aarch64-apple-darwin
             pyinstaller_ext: ""
             artifact_name: autondb-core-aarch64-apple-darwin
-          - os: macos-13
+          - os: macos-14
             target: x86_64-apple-darwin
             sidecar_name: autondb-core-x86_64-apple-darwin
             pyinstaller_ext: ""
@@ -157,7 +157,7 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             sidecar_name: autondb-core-aarch64-apple-darwin
-          - os: macos-13
+          - os: macos-14
             target: x86_64-apple-darwin
             sidecar_name: autondb-core-x86_64-apple-darwin
 

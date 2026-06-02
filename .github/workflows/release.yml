@@ -169,7 +169,11 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: sidecar-${{ matrix.target }}
-          path: src-tauri/binaries/
+          path: .
+
+      - name: Verify sidecar exists
+        run: ls -la src-tauri/binaries/${{ matrix.sidecar_name }}
+        shell: bash
 
       - name: Make sidecar executable (Unix)
         if: runner.os != 'Windows'

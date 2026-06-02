@@ -1,0 +1,74 @@
+sequenceDiagram
+    actor User
+    participant CLI
+    participant Engine as MigrationEngine
+    participant Source as SourceDB
+    participant AI as AIService
+    participant Target as TargetDB
+    participant KPI as KPITracker
+
+    User->>CLI: run migration
+    activate CLI
+    CLI->>Engine: init(source, target, ai)
+    activate Engine
+
+    Note over Engine,AI: Phase 1 - Schema Mapping
+    Engine->>Source: get_schema()
+    Source-->>Engine: DDL and TableSchema list
+    Engine->>AI: map_schema(source_ddl, target_dialect)
+    activate AI
+    Note right of AI: Sends only DDL metadata - no raw data
+    AI-->>Engine: SchemaMapping
+    deactivate AI
+    Engine-->>User: Display mapping for approval
+    User->>Engine: Approve mapping
+
+    Note over Engine,AI: Phase 2 - Pre-Flight Sanitization
+    Engine->>Source: stream_data(sample, limit=1000)
+    Source-->>Engine: ColumnStats list
+    Engine->>AI: sanitize_preflight(column_stats)
+    activate AI
+    Note right of AI: Statistical metadata only - no PII
+    AI-->>Engine: SanitizationReport
+    deactivate AI
+    alt has data issues
+        Engine-->>User: Display issues and suggested fixes
+        User->>Engine: Confirm proceed
+    end
+
+    Note over Engine,KPI: Phase 3 - Migration
+    Engine->>Target: disable_constraints()
+    Note right of Target: Drop FKs and indexes for speed
+    Engine->>KPI: start tracking
+
+    loop For each table
+        Engine->>Source: stream_data(table)
+        activate Source
+        loop Batch of rows
+            Source-->>Engine: Row batch
+            Engine->>KPI: increment_rows(count)
+            Engine->>Target: bulk_insert(table, batch)
+            Target-->>Engine: ack
+            Engine->>KPI: increment_bytes(size)
+        end
+        deactivate Source
+    end
+
+    Engine->>Target: enable_constraints()
+    Note right of Target: Recreate FKs and indexes
+    Engine->>KPI: snapshot()
+    KPI-->>Engine: KPISnapshot
+
+    Note over Engine,Target: Phase 4 - Integrity Audit
+    loop For each table
+        Engine->>Source: get_row_count(table)
+        Source-->>Engine: source_count
+        Engine->>Target: get_row_count(table)
+        Target-->>Engine: target_count
+    end
+    Engine->>Engine: Build AuditReport
+
+    Engine-->>CLI: MigrationResult
+    deactivate Engine
+    CLI-->>User: Summary with AuditReport and KPI
+    deactivate CLI

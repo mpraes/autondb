@@ -1,0 +1,64 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+# C extensions
+*.so
+# Distribution / packaging
+Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+installed.cfg
+*.egg
+MANIFEST
+# PyInstaller
+*.spec
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+# Unit test / coverage reports
+htmlcov/
+tox/
+nox/
+coverage
+coverage.*
+cache
+nosetests.xml
+coverage.xml
+*.cover
+pytest_cache/
+# Django stuff:
+*.log
+local_settings.py
+db.sqlite3
+# Flask stuff:
+instance/
+webassets-cache
+# Jupyter Notebook checkpoints
+ipynb_checkpoints/
+# Virtual environments
+env
+venv
+env/
+venv/
+# IDE settings (e.g., PyCharm, VSCode)
+idea/
+vscode/
+# MyPy type checker cache
+mypy_cache/
+# Cython debug symbols
+cython_debug/
+# Poetry and Pipenv lock files (optional)
+poetry.lock
+Pipfile.lock

@@ -1,0 +1,183 @@
+classDiagram
+    class CLI {
+        +main() None
+        +parse_args() Namespace
+        +run_migration(config MigrationConfig) None
+    }
+
+    class IDatabase {
+        <<abstract>>
+        +connect() None
+        +disconnect() None
+        +get_schema() list~TableSchema~
+        +stream_data(table str) AsyncIterator
+        +bulk_insert(table str, rows list) None
+        +get_row_count(table str) int
+        +disable_constraints() None
+        +enable_constraints() None
+    }
+
+    class SQLiteDB {
+        -_conn Connection
+        -_db_path str
+        +connect() None
+        +disconnect() None
+        +get_schema() list~TableSchema~
+        +stream_data(table str) AsyncIterator
+        +bulk_insert(table str, rows list) None
+    }
+
+    class PostgresDB {
+        -_pool Pool
+        -_dsn str
+        +connect() None
+        +disconnect() None
+        +get_schema() list~TableSchema~
+        +stream_data(table str) AsyncIterator
+        +bulk_insert(table str, rows list) None
+        +copy_to_table(table str, data) None
+        +disable_constraints() None
+        +enable_constraints() None
+    }
+
+    class MySQLDB {
+        -_pool Pool
+        -_dsn str
+        +connect() None
+        +disconnect() None
+        +get_schema() list~TableSchema~
+        +stream_data(table str) AsyncIterator
+        +bulk_insert(table str, rows list) None
+        +disable_constraints() None
+        +enable_constraints() None
+    }
+
+    class AIService {
+        -_client AsyncOpenAI
+        -_model str
+        +init(api_key str, model str)
+        +map_schema(source_ddl str, target_dialect str) SchemaMapping
+        +sanitize_preflight(column_stats ColumnStats) SanitizationReport
+    }
+
+    class SchemaMapping {
+        +tables list~TableMapping~
+        +warnings list~str~
+        +to_ddl(dialect str) str
+    }
+
+    class TableMapping {
+        +source_table str
+        +target_table str
+        +columns list~ColumnMapping~
+    }
+
+    class ColumnMapping {
+        +source_name str
+        +source_type str
+        +target_name str
+        +target_type str
+        +transform Optional~str~
+    }
+
+    class ColumnStats {
+        +table str
+        +column str
+        +sample_values list~str~
+        +null_count int
+        +total_rows int
+    }
+
+    class SanitizationReport {
+        +issues list~DataIssue~
+        +is_clean bool
+    }
+
+    class DataIssue {
+        +table str
+        +column str
+        +issue_type str
+        +description str
+        +suggested_fix str
+    }
+
+    class MigrationEngine {
+        -_source IDatabase
+        -_target IDatabase
+        -_ai AIService
+        -_kpi KPITracker
+        +init(source, target, ai_service)
+        +run() MigrationResult
+    }
+
+    class KPITracker {
+        -_start_time float
+        -_rows_processed int
+        -_bytes_processed int
+        +increment_rows(count int) None
+        +increment_bytes(count int) None
+        +get_rows_per_sec() float
+        +get_bytes_per_sec() float
+        +get_eta(total_rows int) float
+        +snapshot() KPISnapshot
+    }
+
+    class KPISnapshot {
+        +rows_per_sec float
+        +bytes_per_sec float
+        +eta_seconds float
+        +rows_processed int
+        +elapsed_seconds float
+    }
+
+    class AuditReport {
+        +table_counts dict
+        +is_valid bool
+        +mismatches list~str~
+    }
+
+    class SourceTargetCount {
+        +source_count int
+        +target_count int
+        +matches bool
+    }
+
+    class MigrationResult {
+        +audit AuditReport
+        +kpi_final KPISnapshot
+        +success bool
+        +errors list~str~
+    }
+
+    class MigrationConfig {
+        +source_dsn str
+        +source_dialect str
+        +target_dsn str
+        +target_dialect str
+        +openai_api_key str
+        +openai_model str
+        +batch_size int
+    }
+
+    IDatabase <|-- SQLiteDB
+    IDatabase <|-- PostgresDB
+    IDatabase <|-- MySQLDB
+
+    AIService *-- SchemaMapping
+    SchemaMapping *-- TableMapping
+    TableMapping *-- ColumnMapping
+    AIService ..> ColumnStats : uses as input
+    AIService *-- SanitizationReport
+    SanitizationReport *-- DataIssue
+
+    MigrationEngine *-- KPITracker
+    MigrationEngine --> AuditReport : produces
+    MigrationEngine --> MigrationResult : produces
+    KPITracker *-- KPISnapshot
+    AuditReport *-- SourceTargetCount
+
+    CLI --> MigrationConfig : creates
+    CLI --> MigrationEngine : instantiates
+    MigrationEngine --> IDatabase : uses
+    MigrationEngine --> AIService : uses
+    MigrationEngine --> KPITracker : uses

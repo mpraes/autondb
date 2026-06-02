@@ -1,0 +1,42 @@
+graph TB
+    subgraph Core[AutonDB Core]
+        CLI[CLI - main.py]
+        Engine[MigrationEngine - engine/migration.py]
+        AI[AIService - services/ai_service.py]
+        KPI[KPITracker - engine/kpi.py]
+        Audit[AuditReport - Pydantic]
+        Result[MigrationResult - Pydantic]
+        Schema[SchemaMapping - Pydantic]
+        SanReport[SanitizationReport - Pydantic]
+    end
+
+    subgraph DB[Database Connectors - databases]
+        IDB[IDatabase - abstract]
+        SQLite[SQLiteDB - aiosqlite]
+        PG[PostgresDB - asyncpg]
+        MySQL[MySQLDB - aiomysql]
+    end
+
+    OpenAI[OpenAI API]
+    SourceDB[(Source DB)]
+    TargetDB[(Target DB)]
+
+    CLI -->|configures and runs| Engine
+    Engine -->|reads source, writes target| IDB
+    Engine -->|schema mapping, sanitization| AI
+    Engine -->|tracks progress| KPI
+    Engine -->|produces| Audit
+    Engine -->|produces| Result
+
+    IDB -.->|implements| SQLite
+    IDB -.->|implements| PG
+    IDB -.->|implements| MySQL
+
+    AI -->|DDL and metadata only| OpenAI
+    AI -->|produces| Schema
+    AI -->|produces| SanReport
+
+    SQLite -->|file-based| SourceDB
+    PG -->|asyncpg pool| SourceDB
+    PG -->|copy_to_table| TargetDB
+    MySQL -->|batch inserts| TargetDB

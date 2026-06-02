@@ -1,0 +1,13 @@
+[project]
+name = "autondb"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "aiomysql>=0.3.2",
+    "aiosqlite>=0.22.1",
+    "asyncpg>=0.31.0",
+    "openai>=2.40.0",
+    "pydantic>=2.13.4",
+]

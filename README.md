@@ -295,6 +295,39 @@ You can also trigger a release manually via **Actions → Release → Run workfl
 | `make tauri-build` | Build Tauri desktop app |
 | `make build-sidecar` | Build Python sidecar binary |
 
+## Contributing
+
+1. **Fork** the repository and create your branch from `main`
+2. **Write tests** — every new function or branch must have a corresponding test under `tests/`
+3. **Run checks locally** before pushing:
+
+```bash
+make lint   # ruff check + format check
+make test   # pytest tests/ -v
+```
+
+4. **Open a Pull Request** against `main`
+
+CI runs automatically on every PR (`.github/workflows/tests.yml`):
+
+- **Lint** — `ruff check` + `ruff format --check`
+- **Tests** — `pytest tests/ -v`
+
+PRs must pass both jobs before merging.
+
+### Releasing
+
+Releases are handled via semver tags — see [docs/releases.md](docs/releases.md) for the full guide. In short:
+
+```bash
+git tag v1.2.3
+git push origin v1.2.3
+```
+
+This triggers `.github/workflows/release.yml`, which builds the Python sidecar, packages the Tauri app for all platforms, and publishes a GitHub Release with installers + CLI binaries.
+
 ## License
 
-MIT
+This project is licensed under the [MIT License](LICENSE).
+
+Copyright (c) 2025 mpraes

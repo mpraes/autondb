@@ -1,6 +1,6 @@
 {
-  "devDependencies": {
-    "@mermaid-js/mermaid-cli": "^11.15.0"
+  "scripts": {
+    "tauri": "tauri"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.11.0",

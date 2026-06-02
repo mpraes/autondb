@@ -8,13 +8,18 @@ AutonDB is an AI-assisted database migration tool for small/medium databases (Po
 
 ## Current State
 
-The project has completed **Epic 1** (DB connectors), **Epic 2** (AI brain), and **Epic 3** (MigrationEngine). Implementation follows the stories in `docs/BACKLOG.md` sequentially (Epic 1 → 2 → 3 → 4). Next up: Epic 4 (Tauri).
+The project has completed **all 4 Epics** (DB connectors, AI brain, MigrationEngine, Tauri desktop). All stories in `docs/BACKLOG.md` are done. The app is ready for end-to-end testing.
 
 ## Essential Commands
 
 - **Install/sync deps**: `uv sync` (uses `uv.lock`, managed by `uv`)
-- **Run**: `uv run src/main.py` (not yet functional)
+- **Install dev deps**: `uv sync --group dev`
+- **Run CLI**: `uv run src/main.py --source-dsn ... --source-dialect ... --target-dsn ... --target-dialect ...`
 - **Test**: `uv run pytest tests/ -v`
+- **Build Python sidecar**: `./build-core.sh`
+- **Run Tauri dev**: `npx tauri dev`
+- **Build Tauri app**: `npx tauri build`
+- **Linux setup (first time)**: `./setup-linux.sh`
 - **Python version**: 3.13 (pinned in `.python-version`)
 
 ## Architecture (Planned)
@@ -22,6 +27,7 @@ The project has completed **Epic 1** (DB connectors), **Epic 2** (AI brain), and
 ```
 src/
 ├── main.py                  # CLI entry point
+├── bridge.py                 # Tauri sidecar bridge (JSON-over-stdout)
 ├── engine/
 │   ├── __init__.py           # Package exports
 │   ├── migration.py          # MigrationEngine — orchestrator
@@ -41,9 +47,23 @@ src/
 └── databases/               # Database connectors
     ├── __init__.py
     ├── idatabase.py         # IDatabase abstract base
-    ├── SQLiteDB   (aiosqlite)
-    ├── PostgresDB (asyncpg)
-    └── MySQLDB    (aiomysql)
+    ├── sqlite_db.py         # SQLiteDB   (aiosqlite)
+    ├── postgres_db.py       # PostgresDB (asyncpg)
+    └── mysql_db.py          # MySQLDB    (aiomysql)
+
+src-tauri/                    # Tauri 2 desktop app
+├── Cargo.toml                # Rust deps (tauri, serde, dirs)
+├── tauri.conf.json           # App config, sidecar binary path
+├── src/
+│   ├── main.rs               # Rust entry
+│   └── lib.rs                # Tauri commands: analyze_schema, start_migration, download_audit_pdf
+├── capabilities/default.json # Permission config
+└── binaries/                 # PyInstaller sidecar (autondb-core)
+
+ui/                           # Frontend (vanilla HTML/CSS/JS)
+├── index.html                # 3 screens: config, preview, dashboard
+├── css/style.css             # Dark theme, KPI cards, progress bar
+└── js/app.js                 # Tauri API integration, event listeners
 ```
 
 ### Control Flow
@@ -89,8 +109,10 @@ src/
 - `asyncpg` uses `copy_to_table` for maximum bulk insert throughput — not raw INSERT statements
 - MySQL has no native `COPY` equivalent; `aiomysql` batch inserts are the performance path
 - SQLite is file-based — no connection string parsing needed, just a file path
-- The `databases/` package dir is empty but must contain an `__init__.py` or be a proper Python package once connectors are added
-- Epic 4 (Tauri) will introduce a `src-tauri/` directory at project root — don't confuse with `src/` Python source
+- **Tauri on Linux requires system packages**: run `./setup-linux.sh` first (installs libgtk-3-dev, libwebkit2gtk-4.1-dev, etc.)
+- **Tauri sidecar**: the Python bridge binary (`autondb-core`) is built via PyInstaller (`./build-core.sh`) and placed in `src-tauri/binaries/`
+- **Bridge protocol**: Python bridge outputs one JSON event per line to stdout; the Rust backend parses and emits Tauri events
+- The `src-tauri/` directory is the Tauri project root — don't confuse with `src/` Python source
 
 ## Implementation Priority
 
@@ -100,4 +122,4 @@ Per backlog, implement in this order:
 3. **STORY-1.3–1.5**: SQLite, PostgreSQL, MySQL connectors (done)
 4. **STORY-2.1–2.3**: AIService, prompt engineering, Pre-Flight Sanitizer (done)
 5. **STORY-3.1–3.4**: MigrationEngine, constraint toggling, KPITracker, integrity audit (done)
-6. **STORY-4.1–4.5**: Tauri desktop wrapper (separate concern, do last)
+6. **STORY-4.1–4.5**: Tauri desktop wrapper, PyInstaller sidecar, UI screens (done)

@@ -24,6 +24,8 @@ installed.cfg
 MANIFEST
 # PyInstaller
 *.spec
+dist/
+build/
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
@@ -67,6 +69,10 @@ node_modules
 
 # Environment variables
 .env
+
+# Tauri
+src-tauri/target/
+src-tauri/binaries/
 
 # AI Settings
 AGENTS.md

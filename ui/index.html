@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AutonDB</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <nav id="nav">
+      <h1 class="logo">AutonDB</h1>
+      <div class="nav-steps">
+        <button class="nav-btn active" data-screen="config">1. Config</button>
+        <button class="nav-btn" data-screen="preview" disabled>2. Preview</button>
+        <button class="nav-btn" data-screen="dashboard" disabled>3. Migrar</button>
+      </div>
+    </nav>
+
+    <main id="content">
+      <!-- SCREEN: Config -->
+      <section id="screen-config" class="screen active">
+        <h2>Configurar Migração</h2>
+        <form id="config-form">
+          <fieldset>
+            <legend>Banco de Origem</legend>
+            <label for="source-dialect">Dialeto</label>
+            <select id="source-dialect" required>
+              <option value="sqlite">SQLite</option>
+              <option value="postgresql">PostgreSQL</option>
+              <option value="mysql">MySQL</option>
+            </select>
+            <label for="source-dsn">String de Conexão / Caminho</label>
+            <input id="source-dsn" type="text" placeholder="ex: ./db.sqlite ou postgres://user:pass@host/db" required />
+          </fieldset>
+
+          <fieldset>
+            <legend>Banco de Destino</legend>
+            <label for="target-dialect">Dialeto</label>
+            <select id="target-dialect" required>
+              <option value="postgresql">PostgreSQL</option>
+              <option value="mysql">MySQL</option>
+              <option value="sqlite">SQLite</option>
+            </select>
+            <label for="target-dsn">String de Conexão / Caminho</label>
+            <input id="target-dsn" type="text" placeholder="ex: postgres://user:pass@host/db" required />
+          </fieldset>
+
+          <fieldset>
+            <legend>IA (Mapeamento de Schema)</legend>
+            <label for="ai-provider">Provedor</label>
+            <select id="ai-provider">
+              <option value="openai">OpenAI</option>
+              <option value="groq">Groq</option>
+              <option value="openrouter">OpenRouter</option>
+              <option value="anthropic">Anthropic</option>
+            </select>
+            <label for="ai-model">Modelo (opcional)</label>
+            <input id="ai-model" type="text" placeholder="ex: gpt-4o" />
+            <label for="ai-key">API Key</label>
+            <input id="ai-key" type="password" placeholder="sk-..." required />
+          </fieldset>
+
+          <fieldset>
+            <legend>Opções</legend>
+            <label for="batch-size">Tamanho do Lote</label>
+            <input id="batch-size" type="number" value="1000" min="100" max="50000" />
+          </fieldset>
+
+          <button type="submit" class="btn-primary" id="btn-analyze">Analisar Schema</button>
+        </form>
+      </section>
+
+      <!-- SCREEN: Preview -->
+      <section id="screen-preview" class="screen">
+        <h2>Mapeamento da IA</h2>
+        <div id="mapping-container" class="mapping-container"></div>
+        <div id="warnings-container" class="warnings-container"></div>
+        <div id="ddl-container" class="ddl-container">
+          <h3>DDL de Destino</h3>
+          <pre id="ddl-output" class="code-block"></pre>
+        </div>
+        <div class="action-bar">
+          <button class="btn-secondary" id="btn-back-config">Voltar</button>
+          <button class="btn-primary" id="btn-approve">Aprovar e Iniciar Migração</button>
+        </div>
+      </section>
+
+      <!-- SCREEN: Dashboard -->
+      <section id="screen-dashboard" class="screen">
+        <h2>Painel de Migração</h2>
+        <div class="kpi-row">
+          <div class="kpi-card">
+            <span class="kpi-label">Linhas</span>
+            <span class="kpi-value" id="kpi-rows">0</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">Linhas/s</span>
+            <span class="kpi-value" id="kpi-rps">0</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">MB/s</span>
+            <span class="kpi-value" id="kpi-mbps">0.00</span>
+          </div>
+          <div class="kpi-card">
+            <span class="kpi-label">ETA</span>
+            <span class="kpi-value" id="kpi-eta">--</span>
+          </div>
+        </div>
+        <div class="progress-section">
+          <label>Progresso</label>
+          <div class="progress-bar-container">
+            <div class="progress-bar" id="progress-bar"></div>
+            <span class="progress-text" id="progress-text">0%</span>
+          </div>
+        </div>
+        <div id="log-container" class="log-container">
+          <pre id="migration-log" class="code-block"></pre>
+        </div>
+        <div id="audit-container" class="audit-container hidden">
+          <h3>Relatório de Integridade</h3>
+          <pre id="audit-report" class="code-block"></pre>
+          <button class="btn-secondary" id="btn-download-audit">Baixar PDF do Relatório</button>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast-container"></div>
+    <div id="loading-overlay" class="hidden">
+      <div class="spinner"></div>
+      <p id="loading-text">Carregando...</p>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

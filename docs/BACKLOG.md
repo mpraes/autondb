@@ -63,22 +63,22 @@ Criar uma rotina pós-migração que roda um COUNT e validação rápida por tab
 💻 Epic 4: Distribuição & Interface Desktop (Tauri)
 Trazer o poder do terminal para uma interface visual de clique, leve e sem atrito de instalação.
 
-[ ] STORY-4.1: Setup do Projeto Tauri
+[ X ] STORY-4.1: Setup do Projeto Tauri
 
 Andaimar o frontend com Tauri na raiz do projeto (gerando os diretórios src-tauri).
 
-[ ] STORY-4.2: Empacotamento do Core Python
+[ X ] STORY-4.2: Empacotamento do Core Python
 
 Configurar o PyInstaller para congelar o core do AutonDB em um binário nativo isolado.
 
-[ ] STORY-4.3: Tela de Configuração (Zero Atrito)
+[ X ] STORY-4.3: Tela de Configuração (Zero Atrito)
 
 Criar interface limpa para colar as strings de conexão dos bancos e a chave da OpenAI.
 
-[ ] STORY-4.4: Tela de Preview da IA
+[ X ] STORY-4.4: Tela de Preview da IA
 
 Exibir de forma visual o mapeamento sugerido pela IA para que o usuário possa clicar em "Aprovar e Iniciar Migração".
 
-[ ] STORY-4.5: Painel de Controle (Foguete)
+[ X ] STORY-4.5: Painel de Controle (Foguete)
 
 Criar a tela de progresso com os velocímetros de linhas/segundo calculados pelo KPITracker e botão de download do PDF de Auditoria.

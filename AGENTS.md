@@ -29,6 +29,8 @@ All commands are available via the Makefile. Run `make` to see available targets
 | `make setup-windows` | Install ALL dev deps on Windows (first time) | `powershell -File ./setup-windows.ps1` |
 | `make clean` | Remove caches and build artifacts | — |
 
+**Releasing**: push a semver tag (`v*.*.*`) to trigger the CI pipeline, or use `workflow_dispatch` for manual releases. See `CHANGELOG.md` for format.
+
 **Running a migration**:
 ```bash
 make run-migrate SOURCE_DSN=/data/source.db SOURCE_DIALECT=sqlite TARGET_DSN=postgres://user:pass@host/db TARGET_DIALECT=postgresql
@@ -170,7 +172,7 @@ These rules are **non-negotiable**. Any code that violates them must be fixed be
    - `AIService.from_env()` — fallback logic from env vars
    - `src/databases/identifier.py` — `validate_identifier()`
 
-10. **Documentation must reflect reality** — when changing code behavior, update `AGENTS.md` and `docs/BACKLOG.md` accordingly. Stale documentation is a bug. In particular:
+10. **Documentation must reflect reality** — when changing code behavior, update `AGENTS.md`, `CHANGELOG.md`, and `docs/BACKLOG.md` accordingly. Stale documentation is a bug. In particular:
     - If you add a new module, add it to the Architecture tree
     - If you change an interface, update the `IDatabase interface` list
     - If you change control flow, update the Control Flow section

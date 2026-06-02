@@ -2,12 +2,84 @@ name: Release
 
 on:
   push:
-    tags: ["v*"]
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g. v1.2.3)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  VERSION: ${{ github.event_name == 'push' && github.ref_name || inputs.version }}
 
 jobs:
+  # ── Step 0: Validate tag and extract changelog ──
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.clean }}
+      changelog: ${{ steps.changelog.outputs.body }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          # Strip 'v' prefix if present
+          CLEAN="${VERSION#v}"
+          echo "clean=$CLEAN" >> "$GITHUB_OUTPUT"
+
+          # Mark as prerelease if version contains alpha/beta/rc
+          if echo "$CLEAN" | grep -qE '(alpha|beta|rc|pre)'; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract changelog section
+        id: changelog
+        run: |
+          # Try exact version match first, then Unreleased
+          SECTION=$(awk -v ver="$CLEAN" '
+            BEGIN { hdr = "## [" ver "]" }
+            index($0, hdr) == 1 { flag=1; next }
+            flag && index($0, "## [") == 1 { exit }
+            flag && index($0, "[") == 1 && index($0, "]:") == 1 { exit }
+            flag { print }
+          ' CHANGELOG.md 2>/dev/null || true)
+
+          if [ -z "$SECTION" ]; then
+            SECTION=$(awk -v ver="Unreleased" '
+              BEGIN { hdr = "## [" ver "]" }
+              index($0, hdr) == 1 { flag=1; next }
+              flag && index($0, "## [") == 1 { exit }
+              flag && index($0, "[") == 1 && index($0, "]:") == 1 { exit }
+              flag { print }
+            ' CHANGELOG.md 2>/dev/null || true)
+          fi
+
+          # Write to file for multiline output
+          echo "$SECTION" > /tmp/changelog_section.md
+          echo "body<<EOF" >> "$GITHUB_OUTPUT"
+          cat /tmp/changelog_section.md >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Show release metadata
+        run: |
+          echo "Version: ${{ steps.version.outputs.clean }}"
+          echo "Prerelease: ${{ steps.version.outputs.prerelease }}"
+          echo "--- Changelog ---"
+          cat /tmp/changelog_section.md
+
   # ── Step 1: Build the Python core binary ONCE per architecture ──
   build-sidecar:
+    needs: prepare
     strategy:
       fail-fast: false
       matrix:
@@ -71,7 +143,7 @@ jobs:
 
   # ── Step 2: Build Tauri app reusing the pre-built sidecar ──
   build-tauri:
-    needs: build-sidecar
+    needs: [prepare, build-sidecar]
     strategy:
       fail-fast: false
       matrix:
@@ -106,6 +178,11 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
       - name: Install Linux system deps
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -125,35 +202,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "AutonDB ${{ github.ref_name }}"
-          releaseBody: |
-            ## Installation
-
-            ### Windows
-            Download and run the `.msi` installer.
-            Or use the standalone CLI: download `autondb-core-x86_64-pc-windows-msvc.exe`.
-
-            ### Linux (Debian/Ubuntu)
-            ```bash
-            sudo dpkg -i autondb_*_amd64.deb
-            ```
-            Or use the `.AppImage` (no install needed):
-            ```bash
-            chmod +x autondb_*_amd64.AppImage
-            ./autondb_*_amd64.AppImage
-            ```
-            Or use the standalone CLI: download `autondb-core-x86_64-unknown-linux-gnu`.
-
-            ### macOS
-            Download and open the `.dmg`.
-            Or use the standalone CLI: download `autondb-core-aarch64-apple-darwin` (Apple Silicon) or `autondb-core-x86_64-apple-darwin` (Intel).
+          tagName: ${{ needs.prepare.outputs.version }}
+          releaseName: "AutonDB v${{ needs.prepare.outputs.version }}"
+          releaseBody: "${{ needs.prepare.outputs.changelog }}"
           releaseDraft: false
-          prerelease: false
+          prerelease: ${{ needs.prepare.outputs.prerelease }}
 
   # ── Step 3: Publish standalone CLI binaries to the Release ──
   publish-cli:
-    needs: [build-sidecar, build-tauri]
+    needs: [prepare, build-sidecar, build-tauri]
     runs-on: ubuntu-latest
     steps:
       - name: Download all CLI binaries
@@ -166,7 +223,28 @@ jobs:
       - name: Upload CLI binaries to Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ needs.prepare.outputs.version }}
           files: cli-binaries/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ── Step 4: Publish .deb to GitHub Packages ──
+  publish-deb:
+    needs: [prepare, build-tauri]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download .deb artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: autondb_${{ needs.prepare.outputs.version }}_amd64.deb
+          path: deb-package/
+        continue-on-error: true
+
+      - name: Upload .deb to Release
+        if: hashFiles('deb-package/*.deb') != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.version }}
+          files: deb-package/*.deb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

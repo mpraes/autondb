@@ -252,17 +252,36 @@ ui/                           # Frontend (vanilla HTML/CSS/JS)
 
 Push a tag and GitHub Actions builds installers for all platforms automatically:
 
+### Tag-based release
+
+Push a semver tag and GitHub Actions builds everything automatically:
+
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v1.2.3
+git push origin v1.2.3
 ```
 
-This triggers `.github/workflows/release.yml` which produces:
-- Windows `.msi`
-- macOS `.dmg`
-- Linux `.deb` + `.AppImage`
+The tag pattern `v*.*.*` triggers `.github/workflows/release.yml`, which:
 
-All artifacts are published to the GitHub Release page.
+1. **Validates** the tag and extracts the changelog section from `CHANGELOG.md`
+2. **Builds** the Python sidecar once per architecture (4 targets)
+3. **Packages** the Tauri app for all platforms (reusing the same sidecar)
+4. **Creates** a GitHub Release with the changelog as body
+5. **Publishes** installers + standalone CLI binaries to the Release
+
+Pre-release tags like `v1.0.0-beta` are automatically marked as pre-release.
+
+You can also trigger a release manually via **Actions → Release → Run workflow**.
+
+### Release artifacts
+
+| Artifact | Platform | Install |
+|----------|----------|---------|
+| `.msi` | Windows | Double-click to install |
+| `.dmg` | macOS | Open, drag to Applications |
+| `.deb` | Debian/Ubuntu | `sudo dpkg -i <file>` |
+| `.AppImage` | Any Linux | `chmod +x && ./<file>` |
+| `autondb-core-*` | All platforms | Standalone CLI binary |
 
 ## Development Commands
 

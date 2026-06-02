@@ -29,34 +29,34 @@ Implementar a classe MySQLDB usando aiomysql para escrita otimizada em lote.
 🧠 Epic 2: Cérebro do AutonDB (Mapeamento & IA)
 Integrar a OpenAI API para analisar a estrutura do banco e prever erros sem tocar nos dados sensíveis.
 
-[ ] STORY-2.1: Cliente de IA (AIService)
+[ X ] STORY-2.1: Cliente de IA (AIService)
 
-Criar a classe que inicializa o cliente da OpenAI utilizando a API Key informada pelo usuário por variável de ambiente (.env).
+Criar a classe que inicializa clientes de múltiplos provedores de IA (OpenAI, Groq, OpenRouter, Anthropic Claude, Synthetic, etc) utilizando as API Keys informadas pelo usuário por variáveis de ambiente (.env), com suporte dinâmico para trocar providers em runtime.
 
-[ ] STORY-2.2: Engenharia de Prompt (Smart Schema Mapping)
+[ X ] STORY-2.2: Engenharia de Prompt (Smart Schema Mapping)
 
 Escrever e testar o prompt que recebe o DDL de origem (ex: SQLite) e retorna um JSON estruturado com o mapeamento exato de tipos para o destino (ex: Postgres).
 
-[ ] STORY-2.3: Pre-Flight Sanitizer (Validador de Dados Sujos)
+[ X ] STORY-2.3: Pre-Flight Sanitizer (Validador de Dados Sujos)
 
 Criar rotina que lê uma amostragem estatística das colunas (ex: primeiras 1000 linhas) e envia metadados para a IA detectar se há dados textuais incompatíveis com o destino (ex: letras em campos de data).
 
 🏎️ Epic 3: Motor de Execução & KPIs (O Orquestrador)
 Fazer a mágica acontecer: ler de um lado, transformar com as regras da IA e descarregar no outro na velocidade máxima.
 
-[ ] STORY-3.1: Classe MigrationEngine
+[ X ] STORY-3.1: Classe MigrationEngine
 
 Desenvolver o orquestrador principal que recebe a aprovação do mapeamento da IA e inicia o pipeline assíncrono.
 
-[ ] STORY-3.2: Desativação Provisória de Constraints
+[ X ] STORY-3.2: Desativação Provisória de Constraints
 
 Adicionar travas no motor para desativar Foreign Keys e Índices no banco de destino antes do streaming começar, e reativá-los ao final (essencial para velocidade).
 
-[ ] STORY-3.3: Módulo KPITracker
+[ X ] STORY-3.3: Módulo KPITracker
 
 Implementar o contador em tempo real que calcula: linhas processadas, MB/segundo e tempo estimado restante (ETA).
 
-[ ] STORY-3.4: Auditoria de Integridade (O Seguro do DBA)
+[ X ] STORY-3.4: Auditoria de Integridade (O Seguro do DBA)
 
 Criar uma rotina pós-migração que roda um COUNT e validação rápida por tabela para garantir correspondência exata de 100% entre origem e destino.
 

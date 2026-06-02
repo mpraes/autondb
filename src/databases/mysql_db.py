@@ -128,6 +128,17 @@ class MySQLDB(IDatabase):
             async with conn.cursor() as cur:
                 await cur.executemany(sql, values)
 
+    async def execute_ddl(self, ddl: str) -> None:
+        self._assert_connected()
+        assert self._pool is not None
+
+        async with self._pool.acquire() as conn:
+            async with conn.cursor() as cur:
+                for stmt in ddl.split(";"):
+                    stmt = stmt.strip()
+                    if stmt:
+                        await cur.execute(stmt)
+
     async def get_row_count(self, table: str) -> int:
         self._assert_connected()
         assert self._pool is not None

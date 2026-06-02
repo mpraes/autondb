@@ -68,6 +68,16 @@ class IDatabase(ABC):
     async def get_row_count(self, table: str) -> int:
         """Return the total row count for the given table."""
 
+    async def execute_ddl(self, ddl: str) -> None:
+        """Execute DDL statements (CREATE TABLE, etc.) on the database.
+
+        Default implementation splits on ';' and executes each statement.
+        Subclasses may override for dialect-specific behavior.
+
+        Args:
+            ddl: DDL string containing one or more SQL statements.
+        """
+
     async def disable_constraints(self) -> None:
         """Disable foreign keys and indexes on the target database.
 

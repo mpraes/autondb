@@ -128,6 +128,16 @@ class PostgresDB(IDatabase):
                     [tuple(r.values[c] for c in columns) for r in rows],
                 )
 
+    async def execute_ddl(self, ddl: str) -> None:
+        self._assert_connected()
+        assert self._pool is not None
+
+        async with self._pool.acquire() as conn:
+            for stmt in ddl.split(";"):
+                stmt = stmt.strip()
+                if stmt:
+                    await conn.execute(stmt)
+
     async def copy_to_table(self, table: str, columns: list[str], data: list[tuple[Any, ...]]) -> None:
         """High-performance bulk load using PostgreSQL COPY protocol.
 

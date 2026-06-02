@@ -7,7 +7,19 @@ requires-python = ">=3.13"
 dependencies = [
     "aiomysql>=0.3.2",
     "aiosqlite>=0.22.1",
+    "anthropic>=0.42.0",
     "asyncpg>=0.31.0",
     "openai>=2.40.0",
     "pydantic>=2.13.4",
+    "python-dotenv>=1.1.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+asyncio_mode = "auto"

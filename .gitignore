@@ -52,6 +52,7 @@ env
 venv
 env/
 venv/
+.venv/
 # IDE settings (e.g., PyCharm, VSCode)
 idea/
 vscode/
@@ -62,3 +63,12 @@ cython_debug/
 # Poetry and Pipenv lock files (optional)
 poetry.lock
 Pipfile.lock
+node_modules
+
+# Environment variables
+.env
+
+# AI Settings
+AGENTS.md
+.crush
+.cursor

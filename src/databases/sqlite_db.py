@@ -98,6 +98,16 @@ class SQLiteDB(IDatabase):
         await self._conn.executemany(sql, values)
         await self._conn.commit()
 
+    async def execute_ddl(self, ddl: str) -> None:
+        self._assert_connected()
+        assert self._conn is not None
+
+        for stmt in ddl.split(";"):
+            stmt = stmt.strip()
+            if stmt:
+                await self._conn.execute(stmt)
+        await self._conn.commit()
+
     async def get_row_count(self, table: str) -> int:
         self._assert_connected()
         assert self._conn is not None

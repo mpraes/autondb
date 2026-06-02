@@ -1,3 +1,9 @@
+"""Pydantic models for AI service requests and responses.
+
+Defines the structured data types used for schema mapping,
+pre-flight sanitization, and data quality reporting.
+"""
+
 from __future__ import annotations
 
 from pydantic import BaseModel, Field
@@ -6,6 +12,8 @@ from src.constants import DEFAULT_TARGET_DIALECT
 
 
 class ColumnMapping(BaseModel):
+    """Mapping of a single column from source to target, including optional transform."""
+
     source_name: str
     source_type: str
     target_name: str
@@ -20,17 +28,29 @@ class ColumnMapping(BaseModel):
 
 
 class TableMapping(BaseModel):
+    """Mapping of a single table with all its column mappings."""
+
     source_table: str
     target_table: str
     columns: list[ColumnMapping]
 
 
 class SchemaMapping(BaseModel):
+    """Full schema mapping result from AI, including all tables and warnings."""
+
     tables: list[TableMapping]
     warnings: list[str] = Field(default_factory=list)
     target_dialect: str = DEFAULT_TARGET_DIALECT
 
     def to_ddl(self) -> str:
+        """Generate CREATE TABLE DDL statements for the target database.
+
+        Produces one CREATE TABLE per mapped table with column definitions,
+        NOT NULL constraints, DEFAULT values, and PRIMARY KEY declarations.
+
+        Returns:
+            DDL string with statements separated by blank lines.
+        """
         statements: list[str] = []
         for table in self.tables:
             col_defs: list[str] = []
@@ -56,6 +76,8 @@ class SchemaMapping(BaseModel):
 
 
 class ColumnStats(BaseModel):
+    """Statistical metadata about a source column for pre-flight sanitization."""
+
     table: str
     column: str
     target_type: str
@@ -66,6 +88,8 @@ class ColumnStats(BaseModel):
 
 
 class DataIssue(BaseModel):
+    """A single data quality issue detected during pre-flight sanitization."""
+
     table: str
     column: str
     issue_type: str
@@ -74,5 +98,7 @@ class DataIssue(BaseModel):
 
 
 class SanitizationReport(BaseModel):
+    """Result of the pre-flight data sanitization check."""
+
     issues: list[DataIssue] = Field(default_factory=list)
     is_clean: bool = True

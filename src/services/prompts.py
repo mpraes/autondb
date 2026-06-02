@@ -1,3 +1,9 @@
+"""Prompt templates for AI schema mapping and pre-flight sanitization.
+
+Builds system and user prompts that instruct the AI model to produce
+structured JSON responses matching the Pydantic model schemas.
+"""
+
 from __future__ import annotations
 
 import json
@@ -11,6 +17,19 @@ def build_schema_mapping_prompt(
     source_dialect: str,
     target_dialect: str,
 ) -> tuple[str, str]:
+    """Build system and user prompts for AI schema mapping.
+
+    The system prompt defines the AI role, mapping rules, and the expected
+    JSON schema. The user prompt provides the source DDL and target dialect.
+
+    Args:
+        source_schema: List of TableSchema from the source database.
+        source_dialect: Source database dialect (e.g. 'sqlite').
+        target_dialect: Target database dialect (e.g. 'postgresql').
+
+    Returns:
+        Tuple of (system_prompt, user_prompt) strings.
+    """
     schema_ddl = _schema_to_readable_ddl(source_schema)
 
     system = (
@@ -44,6 +63,18 @@ def build_sanitization_prompt(
     column_stats: list[ColumnStats],
     target_dialect: str,
 ) -> tuple[str, str]:
+    """Build system and user prompts for pre-flight data sanitization.
+
+    The system prompt defines the AI role, detection rules, and the expected
+    JSON schema. The user prompt provides column statistical metadata.
+
+    Args:
+        column_stats: List of ColumnStats with sampling metadata.
+        target_dialect: Target database dialect.
+
+    Returns:
+        Tuple of (system_prompt, user_prompt) strings.
+    """
     stats_payload = json.dumps(
         [s.model_dump() for s in column_stats], indent=2, default=str
     )
@@ -110,6 +141,17 @@ def build_sanitization_prompt(
 
 
 def _schema_to_readable_ddl(schema: list[TableSchema]) -> str:
+    """Convert a list of TableSchema into a human-readable DDL representation.
+
+    Used as input for AI prompts — provides table and column definitions
+    in a compact, parseable format.
+
+    Args:
+        schema: List of TableSchema objects.
+
+    Returns:
+        Formatted DDL string.
+    """
     lines: list[str] = []
     for table in schema:
         lines.append(f"TABLE {table.name} (")

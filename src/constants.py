@@ -1,3 +1,10 @@
+"""Shared numeric and string constants used across the AutonDB codebase.
+
+All tunable parameters (batch sizes, pool sizes, max tokens, conversion
+factors, default dialects, etc.) live here so they are never duplicated
+as magic values in other modules.
+"""
+
 from __future__ import annotations
 
 DEFAULT_BATCH_SIZE = 1000

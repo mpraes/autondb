@@ -1,102 +1,104 @@
-# Guia de Releases e GitHub Actions
+# Release Guide
 
-## Visão Geral
+## Overview
 
-O pipeline de release é acionado por **tags semver** (`v*.*.*`) ou **manualmente** via GitHub Actions. Ele compila o binário Python uma vez por arquitetura, empacota o app Tauri para todas as plataformas e publica tudo em uma GitHub Release.
+The release pipeline is triggered by **semver tags** (`v*.*.*`) or **manually** via GitHub Actions. It compiles the Python binary once per architecture, packages the Tauri app for all platforms, and publishes everything to a GitHub Release.
 
-## Fluxo Completo
+> **Tests CI**: the `.github/workflows/tests.yml` workflow runs lint + tests on every push/PR to `main`. See [docs/contributing.md](contributing.md) for details.
 
-### 1. Preparar o CHANGELOG
+## Full Flow
 
-Antes de taggear, mova as mudanças de `[Unreleased]` para a nova versão em `CHANGELOG.md`:
+### 1. Prepare the CHANGELOG
+
+Before tagging, move changes from `[Unreleased]` to the new version in `CHANGELOG.md`:
 
 ```markdown
 ## [1.2.0] - 2025-07-15
 
 ### Added
-- Nova funcionalidade X
+- New feature X
 
 ### Fixed
-- Bug Y corrigido
+- Bug Y fixed
 
 ## [Unreleased]
 
 ### Added
-- (vazio — próximas mudanças entram aqui)
+- (empty — future changes go here)
 ```
 
-Atualize os links do rodapé:
+Update the footer links:
 
 ```markdown
 [unreleased]: https://github.com/renan/autondb/compare/v1.2.0...HEAD
 [1.2.0]: https://github.com/renan/autondb/compare/v1.1.0...v1.2.0
 ```
 
-### 2. Commitar e taggear
+### 2. Commit and tag
 
 ```bash
-# Commitar o changelog atualizado
+# Commit the updated changelog
 git add CHANGELOG.md
 git commit -m "chore: update CHANGELOG for v1.2.0"
 
-# Criar a tag
+# Create the tag
 git tag v1.2.0
 
-# Push do commit + tag
+# Push commit + tag
 git push origin main
 git push origin v1.2.0
 ```
 
-> Alternativamente, push tudo de uma vez: `git push origin main v1.2.0`
+> Alternatively, push everything at once: `git push origin main v1.2.0`
 
-### 3. O pipeline executa automaticamente
+### 3. The pipeline runs automatically
 
-Ao detectar a tag `v1.2.0`, o workflow `.github/workflows/release.yml` executa:
+When it detects the tag `v1.2.0`, the workflow `.github/workflows/release.yml` runs:
 
-| Job | Descrição |
-|-----|-----------|
-| `prepare` | Valida a tag, extrai versão, detecta prerelease, extrai seção do CHANGELOG |
-| `build-sidecar` | Compila `autondb-core` via PyInstaller (4 arquiteturas) |
-| `build-tauri` | Baixa sidecar pré-compilado, compila Rust, empacota instaladores |
-| `publish-cli` | Publica binários CLI standalone na Release |
+| Job | Description |
+|-----|-------------|
+| `prepare` | Validates tag, extracts version, detects prerelease, extracts CHANGELOG section |
+| `build-sidecar` | Compiles `autondb-core` via PyInstaller (4 architectures) |
+| `build-tauri` | Downloads pre-built sidecar, compiles Rust, packages installers |
+| `publish-cli` | Publishes standalone CLI binaries to the Release |
 
-### 4. A Release é criada
+### 4. The Release is created
 
-A Release aparece em **GitHub → Releases** com:
+The Release appears in **GitHub → Releases** with:
 
-- **Título**: `AutonDB v1.2.0`
-- **Body**: seção extraída do `CHANGELOG.md`
-- **Artifacts**: instaladores + binários CLI
+- **Title**: `AutonDB v1.2.0`
+- **Body**: section extracted from `CHANGELOG.md`
+- **Artifacts**: installers + CLI binaries
 
-## Comandos de Referência
+## Reference Commands
 
-### Criar release normal
+### Create a normal release
 
 ```bash
 git tag v1.2.0
 git push origin v1.2.0
 ```
 
-### Criar prerelease (alpha/beta/rc)
+### Create a prerelease (alpha/beta/rc)
 
 ```bash
 git tag v1.2.0-beta.1
 git push origin v1.2.0-beta.1
 ```
 
-Tags contendo `alpha`, `beta`, `rc` ou `pre` são automaticamente marcadas como **prerelease**.
+Tags containing `alpha`, `beta`, `rc` or `pre` are automatically marked as **prerelease**.
 
-### Release manual (sem tag)
+### Manual release (no tag)
 
-1. Ir em **GitHub → Actions → Release**
-2. Clicar **Run workflow**
-3. Inserir a versão (ex: `v1.2.0`)
-4. Clicar **Run**
+1. Go to **GitHub → Actions → Release**
+2. Click **Run workflow**
+3. Enter the version (e.g. `v1.2.0`)
+4. Click **Run**
 
-### Extrair changelog de uma versão (local)
+### Extract changelog for a version (local)
 
 ```bash
-# Versão específica
+# Specific version
 awk -v ver="1.2.0" '
   BEGIN { hdr = "## [" ver "]" }
   index($0, hdr) == 1 { flag=1; next }
@@ -115,54 +117,54 @@ awk -v ver="Unreleased" '
 ' CHANGELOG.md
 ```
 
-### Listar tags locais
+### List local tags
 
 ```bash
 git tag --list 'v*'
 ```
 
-### Deletar tag (se precisar corrigir)
+### Delete tag (if you need to fix)
 
 ```bash
 # Local
 git tag -d v1.2.0
 
-# Remoto
+# Remote
 git push origin :refs/tags/v1.2.0
 ```
 
-### Deletar release via GitHub CLI
+### Delete release via GitHub CLI
 
 ```bash
 gh release delete v1.2.0 --yes
 ```
 
-## Artifacts por Plataforma
+## Artifacts by Platform
 
-| Artifact | Plataforma | Instalação |
-|----------|------------|------------|
-| `.msi` | Windows | Duplo-clique para instalar |
-| `.dmg` | macOS | Abrir, arrastar para Applications |
+| Artifact | Platform | Install |
+|----------|----------|---------|
+| `.msi` | Windows | Double-click to install |
+| `.dmg` | macOS | Open, drag to Applications |
 | `.deb` | Debian/Ubuntu | `sudo dpkg -i <file>` |
-| `.AppImage` | Qualquer Linux | `chmod +x <file> && ./<file>` |
-| `autondb-core-x86_64-pc-windows-msvc.exe` | Windows | CLI standalone |
-| `autondb-core-x86_64-unknown-linux-gnu` | Linux x86_64 | CLI standalone |
-| `autondb-core-aarch64-apple-darwin` | macOS Apple Silicon | CLI standalone |
-| `autondb-core-x86_64-apple-darwin` | macOS Intel | CLI standalone |
+| `.AppImage` | Any Linux | `chmod +x <file> && ./<file>` |
+| `autondb-core-x86_64-pc-windows-msvc.exe` | Windows | Standalone CLI |
+| `autondb-core-x86_64-unknown-linux-gnu` | Linux x86_64 | Standalone CLI |
+| `autondb-core-aarch64-apple-darwin` | macOS Apple Silicon | Standalone CLI |
+| `autondb-core-x86_64-apple-darwin` | macOS Intel | Standalone CLI |
 
-## Arquitetura do Pipeline
+## Pipeline Architecture
 
 ```
 git tag v1.2.0 ──push──▶ GitHub Actions
                               │
                               ▼
                          ┌─────────┐
-                         │ prepare  │  valida tag, extrai changelog
+                         │ prepare  │  validates tag, extracts changelog
                          └────┬─────┘
                               │
                               ▼
                      ┌───────────────┐
-                     │ build-sidecar │  PyInstaller × 4 arquiteturas
+                     │ build-sidecar │  PyInstaller × 4 architectures
                      └───────┬───────┘
                               │
               ┌───────────────┼───────────────┐
@@ -176,32 +178,32 @@ git tag v1.2.0 ──push──▶ GitHub Actions
                              │
                              ▼
                     ┌─────────────────┐
-                    │  publish-cli    │  Publica binários CLI na Release
+                    │  publish-cli    │  Publishes CLI binaries to Release
                     └─────────────────┘
 ```
 
-## Versões do App
+## App Versions
 
-A versão é definida em **3 lugares** que devem ser sincronizados:
+The version is defined in **3 places** that must be kept in sync:
 
-| Arquivo | Campo | Exemplo |
-|---------|-------|---------|
-| `CHANGELOG.md` | `## [1.2.0]` | Header da seção |
-| `src-tauri/tauri.conf.json` | `"version": "1.2.0"` | Versão do bundle Tauri |
-| `pyproject.toml` | `version = "1.2.0"` | Versão do pacote Python |
+| File | Field | Example |
+|------|-------|---------|
+| `CHANGELOG.md` | `## [1.2.0]` | Section header |
+| `src-tauri/tauri.conf.json` | `"version": "1.2.0"` | Tauri bundle version |
+| `pyproject.toml` | `version = "1.2.0"` | Python package version |
 
-> O workflow lê a versão da **tag**, não desses arquivos. Mas eles devem estar em sync para consistência.
+> The workflow reads the version from the **tag**, not from these files. But they must be in sync for consistency.
 
-## Checklist de Release
+## Release Checklist
 
-- [ ] Mover entradas de `[Unreleased]` para `[x.y.z]` no `CHANGELOG.md`
-- [ ] Atualizar data no header da versão
-- [ ] Atualizar links do rodapé (`[unreleased]` e `[x.y.z]`)
-- [ ] Atualizar `version` em `src-tauri/tauri.conf.json`
-- [ ] Atualizar `version` em `pyproject.toml`
-- [ ] Commitar: `git commit -m "chore: release v1.2.0"`
-- [ ] Taggear: `git tag v1.2.0`
+- [ ] Move entries from `[Unreleased]` to `[x.y.z]` in `CHANGELOG.md`
+- [ ] Update date in version header
+- [ ] Update footer links (`[unreleased]` and `[x.y.z]`)
+- [ ] Update `version` in `src-tauri/tauri.conf.json`
+- [ ] Update `version` in `pyproject.toml`
+- [ ] Commit: `git commit -m "chore: release v1.2.0"`
+- [ ] Tag: `git tag v1.2.0`
 - [ ] Push: `git push origin main v1.2.0`
-- [ ] Verificar o workflow em **GitHub → Actions**
-- [ ] Confirmar a Release em **GitHub → Releases**
-- [ ] Baixar e testar o instalador da sua plataforma
+- [ ] Verify the workflow in **GitHub → Actions**
+- [ ] Confirm the Release in **GitHub → Releases**
+- [ ] Download and test the installer for your platform

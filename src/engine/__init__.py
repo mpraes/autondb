@@ -1,3 +1,5 @@
+"""Engine package — migration orchestrator, KPI tracking, and integrity audit."""
+
 from src.engine.integrity_audit import (
     IntegrityAuditReport,
     TableAuditResult,

@@ -1,3 +1,5 @@
+"""Services package — AI service, models, and provider implementations."""
+
 from src.services.ai_service import AIService, AIServiceError
 from src.services.models import (
     ColumnMapping,

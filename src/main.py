@@ -1,3 +1,5 @@
+"""AutonDB CLI entry point — parse args and run the migration pipeline."""
+
 from __future__ import annotations
 
 import argparse
@@ -10,6 +12,17 @@ from src.services.ai_service import AIService
 
 
 async def run_migration(args: argparse.Namespace) -> None:
+    """Execute the full migration pipeline from CLI arguments.
+
+    Connects to source and target databases, runs AI schema mapping,
+    prompts for approval (or skips with --auto-approve), executes the
+    migration, and prints the integrity audit report.
+
+    Args:
+        args: Parsed CLI arguments with source_dsn, source_dialect,
+            target_dsn, target_dialect, ai_provider, ai_model,
+            batch_size, and auto_approve.
+    """
     source = build_db(args.source_dialect, args.source_dsn)
     target = build_db(args.target_dialect, args.target_dsn)
 
@@ -71,6 +84,14 @@ async def run_migration(args: argparse.Namespace) -> None:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    """Parse and return CLI arguments for the migration tool.
+
+    Args:
+        argv: Optional argument list (defaults to sys.argv).
+
+    Returns:
+        Parsed argparse.Namespace with all migration flags.
+    """
     parser = argparse.ArgumentParser(
         prog="autondb",
         description="AI-assisted database migration tool",
@@ -122,6 +143,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def main() -> None:
+    """Entry point: parse args and run the async migration."""
     args = parse_args()
     asyncio.run(run_migration(args))
 

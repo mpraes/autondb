@@ -9,6 +9,8 @@ from src.constants import BYTES_PER_MB
 
 @dataclass
 class KPISnapshot:
+    """Immutable snapshot of migration performance metrics at a point in time."""
+
     rows_processed: int = 0
     bytes_processed: int = 0
     elapsed_seconds: float = 0.0
@@ -24,6 +26,11 @@ class KPITracker:
     """
 
     def __init__(self, total_rows: int | None = None) -> None:
+        """Initialize the tracker.
+
+        Args:
+            total_rows: Optional pre-known total row count for ETA calculation.
+        """
         self._total_rows = total_rows
         self._rows_processed: int = 0
         self._bytes_processed: int = 0
@@ -32,6 +39,7 @@ class KPITracker:
 
     @property
     def total_rows(self) -> int | None:
+        """Total rows expected (used for ETA calculation)."""
         return self._total_rows
 
     @total_rows.setter
@@ -39,29 +47,41 @@ class KPITracker:
         self._total_rows = value
 
     def start(self) -> None:
+        """Start the performance timer."""
         self._start_time = time.perf_counter()
         self._running = True
 
     def stop(self) -> None:
+        """Stop the performance timer."""
         self._running = False
 
     @property
     def is_running(self) -> bool:
+        """Whether the timer is currently active."""
         return self._running
 
     def add_rows(self, count: int, byte_size: int = 0) -> None:
+        """Accumulate processed row and byte counts.
+
+        Args:
+            count: Number of rows processed in this batch.
+            byte_size: Approximate byte size of the batch.
+        """
         self._rows_processed += count
         self._bytes_processed += byte_size
 
     @property
     def rows_processed(self) -> int:
+        """Total rows processed so far."""
         return self._rows_processed
 
     @property
     def bytes_processed(self) -> int:
+        """Total bytes processed so far."""
         return self._bytes_processed
 
     def snapshot(self) -> KPISnapshot:
+        """Compute and return a snapshot of current performance metrics."""
         elapsed = time.perf_counter() - self._start_time if self._running else 0.0
         if elapsed == 0:
             return KPISnapshot(
@@ -88,6 +108,7 @@ class KPITracker:
         )
 
     def format_snapshot(self) -> str:
+        """Return a human-readable string of current KPI metrics."""
         snap = self.snapshot()
         parts = [f"{snap.rows_processed:,} rows"]
         if snap.elapsed_seconds > 0:

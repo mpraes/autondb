@@ -44,25 +44,40 @@ class PostgresDB(IDatabase):
     """
 
     def __init__(self, dsn: str) -> None:
+        """Initialize PostgresDB with a connection string.
+
+        Args:
+            dsn: PostgreSQL connection string (e.g. 'postgres://user:pass@host/db').
+        """
         self._dsn = dsn
         self._pool: asyncpg.Pool | None = None
 
     async def connect(self) -> None:
+        """Create an asyncpg connection pool."""
         self._pool = await asyncpg.create_pool(
             self._dsn, min_size=DEFAULT_POOL_MIN_SIZE, max_size=DEFAULT_POOL_MAX_SIZE
         )
 
     async def disconnect(self) -> None:
+        """Close the connection pool if active."""
         if self._pool:
             await self._pool.close()
             self._pool = None
 
     def _require_pool(self) -> asyncpg.Pool:
+        """Return the active pool or raise RuntimeError if not connected."""
         if self._pool is None:
             raise RuntimeError("PostgresDB: not connected. Call connect() first.")
         return self._pool
 
     async def get_schema(self) -> list[TableSchema]:
+        """Read all public tables and their columns from PostgreSQL information_schema.
+
+        Also queries pg_index to identify primary key columns.
+
+        Returns:
+            List of TableSchema for each public base table.
+        """
         pool = self._require_pool()
 
         async with pool.acquire() as conn:
@@ -110,6 +125,15 @@ class PostgresDB(IDatabase):
     async def stream_data(
         self, table: str, batch_size: int = DEFAULT_BATCH_SIZE
     ) -> AsyncIterator[list[Row]]:
+        """Yield batches of rows from the given PostgreSQL table using a cursor.
+
+        Args:
+            table: Table name to read from.
+            batch_size: Number of rows per yielded batch.
+
+        Yields:
+            Lists of Row objects.
+        """
         pool = self._require_pool()
         validate_identifier(table)
 
@@ -122,6 +146,12 @@ class PostgresDB(IDatabase):
                 yield [Row(table=table, values=dict(r)) for r in rows]
 
     async def bulk_insert(self, table: str, rows: list[Row]) -> None:
+        """Insert a batch of rows into a PostgreSQL table using executemany.
+
+        Args:
+            table: Target table name.
+            rows: List of Row objects to insert.
+        """
         pool = self._require_pool()
         validate_identifier(table)
 
@@ -143,6 +173,7 @@ class PostgresDB(IDatabase):
                 )
 
     async def execute_ddl(self, ddl: str) -> None:
+        """Execute DDL statements split on semicolons."""
         pool = self._require_pool()
 
         async with pool.acquire() as conn:
@@ -174,6 +205,7 @@ class PostgresDB(IDatabase):
             )
 
     async def get_row_count(self, table: str) -> int:
+        """Return the total row count for a PostgreSQL table."""
         pool = self._require_pool()
         validate_identifier(table)
 
@@ -182,12 +214,14 @@ class PostgresDB(IDatabase):
             return row["cnt"] if row else 0
 
     async def disable_constraints(self) -> None:
+        """Disable FK constraints by setting session_replication_role to 'replica'."""
         pool = self._require_pool()
 
         async with pool.acquire() as conn:
             await conn.execute("SET session_replication_role = 'replica'")
 
     async def enable_constraints(self) -> None:
+        """Re-enable FK constraints by resetting session_replication_role to 'origin'."""
         pool = self._require_pool()
 
         async with pool.acquire() as conn:

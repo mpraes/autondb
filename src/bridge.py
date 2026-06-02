@@ -26,12 +26,31 @@ from src.services.providers import PROVIDER_ENV_KEYS, create_provider
 
 
 def _emit(event_type: str, payload: Any) -> None:
+    """Emit a JSON event to stdout for the Tauri backend to consume.
+
+    Each call writes a single JSON line with 'event' and 'payload' keys.
+
+    Args:
+        event_type: Event name (e.g. 'analyze_result', 'migration_progress').
+        payload: Arbitrary serializable data to send as the event payload.
+    """
     line = json.dumps({"event": event_type, "payload": payload}, default=str)
     sys.stdout.write(line + "\n")
     sys.stdout.flush()
 
 
 def _build_ai_from_config(config: dict) -> AIService:
+    """Build an AIService instance from a Tauri bridge config dict.
+
+    If the config includes an 'ai_key', it is injected into the
+    corresponding environment variable before creating the provider.
+
+    Args:
+        config: Dict with 'ai_provider', 'ai_model', and optional 'ai_key'.
+
+    Returns:
+        A configured AIService instance.
+    """
     provider_name = config.get("ai_provider", DEFAULT_AI_PROVIDER)
     model = config.get("ai_model")
 
@@ -47,6 +66,16 @@ def _build_ai_from_config(config: dict) -> AIService:
 
 
 async def analyze(config: dict) -> None:
+    """Run the schema analysis phase and emit results to stdout.
+
+    Connects to source and target databases, uses AI to map the schema,
+    and emits an 'analyze_result' event with tables, warnings, DDL, and
+    target dialect.
+
+    Args:
+        config: Dict with 'source_dialect', 'source_dsn', 'target_dialect',
+            'target_dsn', and optional AI configuration keys.
+    """
     source = build_db(config["source_dialect"], config["source_dsn"])
     target = build_db(config["target_dialect"], config["target_dsn"])
 
@@ -74,6 +103,19 @@ async def analyze(config: dict) -> None:
 
 
 async def migrate(config: dict, mapping_data: dict) -> None:
+    """Run the migration phase and emit progress/results to stdout.
+
+    Connects to source and target databases, reconstructs the schema
+    mapping from mapping_data, runs the MigrationEngine, and emits
+    'migration_progress' events during execution and a 'migration_complete'
+    or 'migration_error' event when done.
+
+    Args:
+        config: Dict with 'source_dialect', 'source_dsn', 'target_dialect',
+            'target_dsn', and optional 'batch_size' and AI keys.
+        mapping_data: Dict matching SchemaMapping schema, produced by
+            the analyze phase.
+    """
     source = build_db(config["source_dialect"], config["source_dsn"])
     target = build_db(config["target_dialect"], config["target_dsn"])
 
@@ -132,6 +174,7 @@ async def migrate(config: dict, mapping_data: dict) -> None:
 
 
 def main() -> None:
+    """Bridge entry point: dispatch 'analyze' or 'migrate' commands."""
     if len(sys.argv) < 3:
         print(
             "Usage: python -m src.bridge <analyze|migrate> <config_json>",

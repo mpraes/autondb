@@ -1,3 +1,10 @@
+"""Abstract database interface and shared data classes.
+
+Defines IDatabase (the contract all connectors must implement) and
+the data classes ColumnSchema, TableSchema, and Row used throughout
+the migration pipeline.
+"""
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
@@ -10,6 +17,8 @@ from src.constants import DEFAULT_BATCH_SIZE
 
 @dataclass(frozen=True)
 class ColumnSchema:
+    """Schema metadata for a single database column."""
+
     name: str
     type: str
     nullable: bool = True
@@ -19,12 +28,16 @@ class ColumnSchema:
 
 @dataclass(frozen=True)
 class TableSchema:
+    """Schema metadata for a single database table."""
+
     name: str
     columns: list[ColumnSchema]
 
 
 @dataclass(frozen=True)
 class Row:
+    """A single row of data with its source table and column values."""
+
     table: str
     values: dict[str, Any]
 

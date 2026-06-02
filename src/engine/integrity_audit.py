@@ -7,6 +7,8 @@ from src.databases.idatabase import IDatabase
 
 @dataclass
 class TableAuditResult:
+    """Result of a row count comparison for a single table."""
+
     table: str
     source_count: int
     target_count: int
@@ -14,27 +16,34 @@ class TableAuditResult:
 
     @property
     def discrepancy(self) -> int:
+        """Absolute difference between source and target row counts."""
         return abs(self.source_count - self.target_count)
 
 
 @dataclass
 class IntegrityAuditReport:
+    """Aggregated audit report comparing row counts across all migrated tables."""
+
     table_results: list[TableAuditResult]
     all_match: bool
 
     @property
     def total_source_rows(self) -> int:
+        """Sum of row counts across all source tables."""
         return sum(r.source_count for r in self.table_results)
 
     @property
     def total_target_rows(self) -> int:
+        """Sum of row counts across all target tables."""
         return sum(r.target_count for r in self.table_results)
 
     @property
     def mismatched_tables(self) -> list[TableAuditResult]:
+        """List of tables where source and target row counts differ."""
         return [r for r in self.table_results if not r.match]
 
     def summary(self) -> str:
+        """Return a human-readable multi-line audit report."""
         lines: list[str] = ["=== Integrity Audit Report ==="]
         status = "PASS" if self.all_match else "FAIL"
         lines.append(f"Overall: {status}")

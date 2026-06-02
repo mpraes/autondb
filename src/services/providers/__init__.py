@@ -1,3 +1,10 @@
+"""AI provider registry, factory, and environment variable mapping.
+
+This is the single place where load_dotenv() is called and where
+PROVIDER_ENV_KEYS is defined. All provider instantiation goes
+through create_provider().
+"""
+
 from __future__ import annotations
 
 import os
@@ -29,9 +36,25 @@ PROVIDER_ENV_KEYS: dict[str, str] = {
     "openrouter": "OPENROUTER_API_KEY",
     "anthropic": "ANTHROPIC_API_KEY",
 }
+"""Mapping of provider names to their API key environment variable names."""
 
 
 def create_provider(name: str, model: str | None = None) -> AIProvider:
+    """Create and return an AIProvider instance by name.
+
+    Looks up the required API key from environment variables and raises
+    ValueError if it is missing (except for the 'synthetic' mock provider).
+
+    Args:
+        name: Provider name (e.g. 'openai', 'groq', 'openrouter', 'anthropic', 'synthetic').
+        model: Optional model override. Falls back to the provider default.
+
+    Returns:
+        A configured AIProvider instance.
+
+    Raises:
+        ValueError: If the provider name is unknown or the required API key is missing.
+    """
     name = name.lower()
     model = model or _DEFAULT_MODELS.get(name, DEFAULT_AI_MODEL)
 

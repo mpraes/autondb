@@ -29,20 +29,30 @@ class SQLiteDB(IDatabase):
         self._conn: aiosqlite.Connection | None = None
 
     async def connect(self) -> None:
+        """Open an async SQLite connection and set Row as the row factory."""
         self._conn = await aiosqlite.connect(self._db_path)
         self._conn.row_factory = aiosqlite.Row
 
     async def disconnect(self) -> None:
+        """Close the SQLite connection if active."""
         if self._conn:
             await self._conn.close()
             self._conn = None
 
     def _require_conn(self) -> aiosqlite.Connection:
+        """Return the active connection or raise RuntimeError if not connected."""
         if self._conn is None:
             raise RuntimeError("SQLiteDB: not connected. Call connect() first.")
         return self._conn
 
     async def get_schema(self) -> list[TableSchema]:
+        """Read all non-system tables and their columns from SQLite metadata.
+
+        Uses sqlite_master and PRAGMA table_info to build TableSchema objects.
+
+        Returns:
+            List of TableSchema for each user table.
+        """
         conn = self._require_conn()
 
         cursor = await conn.execute(
@@ -74,6 +84,15 @@ class SQLiteDB(IDatabase):
     async def stream_data(
         self, table: str, batch_size: int = DEFAULT_BATCH_SIZE
     ) -> AsyncIterator[list[Row]]:
+        """Yield batches of rows from the given SQLite table.
+
+        Args:
+            table: Table name to read from.
+            batch_size: Number of rows per yielded batch.
+
+        Yields:
+            Lists of Row objects, each containing column name-value pairs.
+        """
         conn = self._require_conn()
         validate_identifier(table)
 
@@ -89,6 +108,12 @@ class SQLiteDB(IDatabase):
             batch = []
 
     async def bulk_insert(self, table: str, rows: list[Row]) -> None:
+        """Insert a batch of rows into a SQLite table using executemany.
+
+        Args:
+            table: Target table name.
+            rows: List of Row objects to insert.
+        """
         conn = self._require_conn()
         validate_identifier(table)
 
@@ -107,6 +132,7 @@ class SQLiteDB(IDatabase):
         await conn.commit()
 
     async def execute_ddl(self, ddl: str) -> None:
+        """Execute DDL statements split on semicolons."""
         conn = self._require_conn()
 
         for stmt in ddl.split(";"):
@@ -116,6 +142,7 @@ class SQLiteDB(IDatabase):
         await conn.commit()
 
     async def get_row_count(self, table: str) -> int:
+        """Return the total row count for a SQLite table."""
         conn = self._require_conn()
         validate_identifier(table)
 

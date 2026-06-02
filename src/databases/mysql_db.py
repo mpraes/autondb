@@ -47,10 +47,16 @@ class MySQLDB(IDatabase):
     """
 
     def __init__(self, dsn: str) -> None:
+        """Initialize MySQLDB with a connection string.
+
+        Args:
+            dsn: MySQL connection string (e.g. 'mysql://user:pass@host/db').
+        """
         self._dsn = dsn
         self._pool: aiomysql.Pool | None = None
 
     async def connect(self) -> None:
+        """Create an aiomysql connection pool with autocommit enabled."""
         self._pool = await aiomysql.create_pool(
             self._dsn,
             minsize=DEFAULT_POOL_MIN_SIZE,
@@ -59,17 +65,24 @@ class MySQLDB(IDatabase):
         )
 
     async def disconnect(self) -> None:
+        """Close the connection pool and wait for cleanup if active."""
         if self._pool:
             self._pool.close()
             await self._pool.wait_closed()
             self._pool = None
 
     def _require_pool(self) -> aiomysql.Pool:
+        """Return the active pool or raise RuntimeError if not connected."""
         if self._pool is None:
             raise RuntimeError("MySQLDB: not connected. Call connect() first.")
         return self._pool
 
     async def get_schema(self) -> list[TableSchema]:
+        """Read all base tables and their columns from MySQL information_schema.
+
+        Returns:
+            List of TableSchema for each base table in the current database.
+        """
         pool = self._require_pool()
 
         async with pool.acquire() as conn:
@@ -110,6 +123,15 @@ class MySQLDB(IDatabase):
     async def stream_data(
         self, table: str, batch_size: int = DEFAULT_BATCH_SIZE
     ) -> AsyncIterator[list[Row]]:
+        """Yield batches of rows from the given MySQL table using a DictCursor.
+
+        Args:
+            table: Table name to read from.
+            batch_size: Number of rows per yielded batch.
+
+        Yields:
+            Lists of Row objects.
+        """
         pool = self._require_pool()
         validate_identifier(table)
 
@@ -123,6 +145,12 @@ class MySQLDB(IDatabase):
                     yield [Row(table=table, values=dict(r)) for r in rows]
 
     async def bulk_insert(self, table: str, rows: list[Row]) -> None:
+        """Insert a batch of rows into a MySQL table using executemany.
+
+        Args:
+            table: Target table name.
+            rows: List of Row objects to insert.
+        """
         pool = self._require_pool()
         validate_identifier(table)
 
@@ -143,6 +171,7 @@ class MySQLDB(IDatabase):
                 await cur.executemany(sql, values)
 
     async def execute_ddl(self, ddl: str) -> None:
+        """Execute DDL statements split on semicolons."""
         pool = self._require_pool()
 
         async with pool.acquire() as conn:
@@ -153,6 +182,7 @@ class MySQLDB(IDatabase):
                         await cur.execute(stmt)
 
     async def get_row_count(self, table: str) -> int:
+        """Return the total row count for a MySQL table."""
         pool = self._require_pool()
         validate_identifier(table)
 
@@ -163,6 +193,7 @@ class MySQLDB(IDatabase):
                 return row[0] if row else 0
 
     async def disable_constraints(self) -> None:
+        """Disable FK constraints by setting FOREIGN_KEY_CHECKS to 0."""
         pool = self._require_pool()
 
         async with pool.acquire() as conn:
@@ -170,6 +201,7 @@ class MySQLDB(IDatabase):
                 await cur.execute("SET FOREIGN_KEY_CHECKS = 0")
 
     async def enable_constraints(self) -> None:
+        """Re-enable FK constraints by setting FOREIGN_KEY_CHECKS to 1."""
         pool = self._require_pool()
 
         async with pool.acquire() as conn:

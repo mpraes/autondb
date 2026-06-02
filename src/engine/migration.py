@@ -40,6 +40,7 @@ class MigrationEngine:
 
     @property
     def kpi(self) -> KPITracker:
+        """Return the KPITracker instance used by this engine."""
         return self._kpi
 
     async def run(self) -> IntegrityAuditReport:
@@ -76,22 +77,26 @@ class MigrationEngine:
         return await run_integrity_audit(self._source, self._target, table_names)
 
     async def _estimate_total_rows(self, table_names: list[str]) -> int:
+        """Sum row counts across all source tables for ETA estimation."""
         total = 0
         for table in table_names:
             total += await self._source.get_row_count(table)
         return total
 
     async def _create_target_tables(self) -> None:
+        """Execute the mapping DDL on the target database."""
         ddl = self._mapping.to_ddl()
         if not ddl:
             return
         await self._target.execute_ddl(ddl)
 
     async def _migrate_data(self) -> None:
+        """Iterate over all table mappings and migrate each one."""
         for table_mapping in self._mapping.tables:
             await self._migrate_table(table_mapping)
 
     async def _migrate_table(self, table_mapping: TableMapping) -> None:
+        """Stream, transform, and bulk-insert rows for a single table."""
         source_table = table_mapping.source_table
         target_table = table_mapping.target_table
         column_map = {col.source_name: col for col in table_mapping.columns}
@@ -112,6 +117,19 @@ class MigrationEngine:
         target_table: str,
         column_map: dict[str, ColumnMapping],
     ) -> list[Row]:
+        """Apply column transforms and rename columns for a batch of rows.
+
+        Maps source column names to target names and applies CAST-style
+        transforms where specified in the mapping.
+
+        Args:
+            batch: List of Row objects from the source database.
+            target_table: Name of the target table for the new Row objects.
+            column_map: Dict mapping source column names to ColumnMapping.
+
+        Returns:
+            List of Row objects with target column names and transformed values.
+        """
 
         transformed: list[Row] = []
         for row in batch:

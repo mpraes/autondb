@@ -23,7 +23,7 @@ installed.cfg
 *.egg
 MANIFEST
 # PyInstaller
-*.spec
+# (autondb-core.spec is tracked — it's the project's build definition)
 dist/
 build/
 # Installer logs

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from src.services.providers.base import AIProvider
 
 
@@ -46,8 +48,6 @@ class SyntheticProvider(AIProvider):
         return "synthetic"
 
     async def complete(self, system: str, user: str) -> str:
-        import json
-
         response = self._select_response(system, user)
         return json.dumps(response)
 

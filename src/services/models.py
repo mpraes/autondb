@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from src.constants import DEFAULT_TARGET_DIALECT
+
 
 class ColumnMapping(BaseModel):
     source_name: str
@@ -26,7 +28,7 @@ class TableMapping(BaseModel):
 class SchemaMapping(BaseModel):
     tables: list[TableMapping]
     warnings: list[str] = Field(default_factory=list)
-    target_dialect: str = "postgresql"
+    target_dialect: str = DEFAULT_TARGET_DIALECT
 
     def to_ddl(self) -> str:
         statements: list[str] = []

@@ -14,6 +14,19 @@ Pick the one that fits your workflow:
 
 All three share the same compiled core binary — build it once, repackage everywhere.
 
+## Installation (End User)
+
+Download the latest release for your platform from [GitHub Releases](https://github.com/renan/autondb/releases):
+
+| Platform | Format | Install |
+|----------|--------|---------|
+| **Windows** | `.msi` | Double-click to install |
+| **macOS** | `.dmg` | Open, drag to Applications |
+| **Linux (Debian/Ubuntu)** | `.deb` | `sudo dpkg -i autondb_*_amd64.deb` |
+| **Linux (any)** | `.AppImage` | `chmod +x autondb_*_amd64.AppImage && ./autondb_*_amd64.AppImage` |
+
+No Rust, Node.js, or Python required — the app is self-contained.
+
 ## Quick Start
 
 ### 1. Standalone CLI
@@ -56,23 +69,6 @@ The CLI will:
 ### 2. Desktop App (Tauri)
 
 A native desktop app with a visual 3-step wizard: **Configure → Preview → Migrate**.
-
-```bash
-# One-time: install Rust
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-
-# One-time: install Linux system dependencies
-./setup-linux.sh
-
-# Build the Python sidecar binary (once per architecture)
-./build-core.sh
-
-# Run in dev mode
-npx tauri dev
-
-# Build production app
-npx tauri build
-```
 
 The desktop app features:
 - **Config screen** — paste connection strings, pick AI provider, enter API key
@@ -117,16 +113,61 @@ async def migrate():
 asyncio.run(migrate())
 ```
 
+## Development Setup
+
+One command installs all dependencies (Rust, Node.js, Python, uv, system libs):
+
+| Platform | Command |
+|----------|---------|
+| **Linux (Debian/Ubuntu)** | `./setup-linux.sh` |
+| **macOS** | `./setup-macos.sh` |
+| **Windows** | `.\setup-windows.ps1` |
+
+Or via Make:
+
+```bash
+make setup-linux     # Debian/Ubuntu
+make setup-macos     # macOS
+make setup-windows   # Windows (PowerShell)
+```
+
+After setup, build and run:
+
+```bash
+./build-core.sh    # Build Python sidecar binary
+npx tauri dev      # Run in dev mode
+npx tauri build    # Build production app
+```
+
+### Requirements (if not using setup scripts)
+
+- **Python** 3.13+ (managed by `uv`)
+- **Rust** 1.77+ (for Tauri desktop builds only)
+- **Node.js** 22+ (for Tauri CLI only)
+- **System libs** (Linux only): `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `libdbus-1-dev`, `libayatana-appindicator3-dev` — run `./setup-linux.sh`
+
 ## Build Philosophy: One Binary, Many Packages
 
-The Python core is compiled **once per target architecture** into a standalone binary via PyInstaller. That same binary is then re-packaged into every distribution format:
+The Python core is compiled **once per target architecture** into a standalone binary via PyInstaller. That same binary is then re-packaged into every distribution format — it is never rebuilt:
 
 ```
-autondb-core (PyInstaller)
-  ├── used directly as CLI (standalone binary)
-  ├── bundled as Tauri sidecar (desktop app)
-  └── importable as Python module (library mode)
+autondb-core (PyInstaller)          ← built ONCE per arch
+  ├── dist/autondb-core             ← standalone CLI binary
+  ├── src-tauri/binaries/           ← Tauri sidecar (same binary, renamed)
+  │   ├── .deb                      ← Debian package (Linux)
+  │   ├── .AppImage                 ← portable app (Linux)
+  │   ├── .msi                      ← Windows installer
+  │   └── .dmg                      ← macOS disk image
+  └── importable as Python module   ← library mode
 ```
+
+**CI pipeline** (`.github/workflows/release.yml`) enforces this:
+
+1. **`build-sidecar`** — PyInstaller compiles `autondb-core` once per architecture (4 targets). Artifact is uploaded.
+2. **`build-tauri`** — downloads the pre-built sidecar (no rebuild), then Tauri compiles the Rust shell and packages it into `.deb` + `.AppImage` / `.msi` / `.dmg`.
+3. **`publish-cli`** — uploads the standalone CLI binaries to the same GitHub Release.
+
+This means the exact same `autondb-core` binary inside the `.deb` is also available as a standalone CLI download.
 
 **Supported architectures:**
 
@@ -136,21 +177,6 @@ autondb-core (PyInstaller)
 | macOS Apple Silicon | `autondb-core-aarch64-apple-darwin` |
 | macOS Intel | `autondb-core-x86_64-apple-darwin` |
 | Windows x86_64 | `autondb-core-x86_64-pc-windows-msvc.exe` |
-
-**Build the core binary:**
-
-```bash
-uv sync --group dev
-uv run pyinstaller autondb-core.spec --noconfirm --clean
-```
-
-The output lands in `dist/autondb-core`. To bundle it for Tauri:
-
-```bash
-./build-core.sh
-```
-
-This compiles the binary and copies it to `src-tauri/binaries/` with the correct platform-specific name.
 
 ## AI Configuration
 
@@ -185,6 +211,7 @@ OPENAI_API_KEY=sk-...
 
 ```
 src/
+├── constants.py              # Shared magic-value constants
 ├── main.py                  # CLI entry point
 ├── bridge.py                 # Tauri sidecar bridge (JSON-over-stdout)
 ├── engine/
@@ -200,6 +227,8 @@ src/
 │       ├── anthropic_provider.py
 │       └── synthetic.py      # Mock for testing
 └── databases/
+    ├── factory.py            # DIALECTS registry + build_db()
+    ├── identifier.py         # Shared validate_identifier() for SQL injection guard
     ├── idatabase.py          # IDatabase abstract base
     ├── sqlite_db.py
     ├── postgres_db.py
@@ -219,26 +248,33 @@ ui/                           # Frontend (vanilla HTML/CSS/JS)
 6. KPITracker reports rows/s, MB/s, ETA in real time
 7. Integrity audit: COUNT per table, source vs target
 
-## Development
+## Releasing
+
+Push a tag and GitHub Actions builds installers for all platforms automatically:
 
 ```bash
-# Install dependencies
-uv sync --group dev
-
-# Run tests
-uv run pytest tests/ -v
-
-# Run linter / type check (if configured)
-# Build sidecar + desktop app
-./build-core.sh && npx tauri dev
+git tag v0.1.0
+git push origin v0.1.0
 ```
 
-## Requirements
+This triggers `.github/workflows/release.yml` which produces:
+- Windows `.msi`
+- macOS `.dmg`
+- Linux `.deb` + `.AppImage`
 
-- **Python** 3.13+ (managed by `uv`)
-- **Rust** 1.77+ (for Tauri desktop builds only)
-- **Node.js** 18+ (for Tauri CLI only)
-- **System libs** (Linux only): `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `libdbus-1-dev`, `libappindicator3-dev` — run `./setup-linux.sh`
+All artifacts are published to the GitHub Release page.
+
+## Development Commands
+
+| Command | Description |
+|---------|-------------|
+| `make install` | Install runtime deps |
+| `make install-dev` | Install runtime + dev deps |
+| `make test` | Run test suite |
+| `make lint` | Lint + format check |
+| `make tauri-dev` | Run Tauri in dev mode |
+| `make tauri-build` | Build Tauri desktop app |
+| `make build-sidecar` | Build Python sidecar binary |
 
 ## License
 

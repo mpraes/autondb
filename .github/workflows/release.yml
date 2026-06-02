@@ -1,0 +1,172 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  # ── Step 1: Build the Python core binary ONCE per architecture ──
+  build-sidecar:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            sidecar_name: autondb-core-x86_64-pc-windows-msvc.exe
+            pyinstaller_ext: .exe
+            artifact_name: autondb-core-x86_64-pc-windows-msvc.exe
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            sidecar_name: autondb-core-x86_64-unknown-linux-gnu
+            pyinstaller_ext: ""
+            artifact_name: autondb-core-x86_64-unknown-linux-gnu
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            sidecar_name: autondb-core-aarch64-apple-darwin
+            pyinstaller_ext: ""
+            artifact_name: autondb-core-aarch64-apple-darwin
+          - os: macos-13
+            target: x86_64-apple-darwin
+            sidecar_name: autondb-core-x86_64-apple-darwin
+            pyinstaller_ext: ""
+            artifact_name: autondb-core-x86_64-apple-darwin
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Install Python deps
+        run: uv sync --group dev
+
+      - name: Build Python core binary
+        run: |
+          uv run pyinstaller autondb-core.spec --noconfirm --clean
+          mkdir -p src-tauri/binaries
+          cp dist/autondb-core${{ matrix.pyinstaller_ext }} src-tauri/binaries/${{ matrix.sidecar_name }}
+        shell: bash
+
+      - name: Upload sidecar artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sidecar-${{ matrix.target }}
+          path: src-tauri/binaries/${{ matrix.artifact_name }}
+          retention-days: 1
+
+      - name: Upload standalone CLI binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.target }}
+          path: dist/autondb-core${{ matrix.pyinstaller_ext }}
+          retention-days: 1
+
+  # ── Step 2: Build Tauri app reusing the pre-built sidecar ──
+  build-tauri:
+    needs: build-sidecar
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            sidecar_name: autondb-core-x86_64-pc-windows-msvc.exe
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            sidecar_name: autondb-core-x86_64-unknown-linux-gnu
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            sidecar_name: autondb-core-aarch64-apple-darwin
+          - os: macos-13
+            target: x86_64-apple-darwin
+            sidecar_name: autondb-core-x86_64-apple-darwin
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download pre-built sidecar
+        uses: actions/download-artifact@v4
+        with:
+          name: sidecar-${{ matrix.target }}
+          path: src-tauri/binaries/
+
+      - name: Make sidecar executable (Unix)
+        if: runner.os != 'Windows'
+        run: chmod +x src-tauri/binaries/${{ matrix.sidecar_name }}
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux system deps
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Node deps
+        run: npm install
+
+      - name: Build Tauri app (reuses same sidecar binary)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: "AutonDB ${{ github.ref_name }}"
+          releaseBody: |
+            ## Installation
+
+            ### Windows
+            Download and run the `.msi` installer.
+            Or use the standalone CLI: download `autondb-core-x86_64-pc-windows-msvc.exe`.
+
+            ### Linux (Debian/Ubuntu)
+            ```bash
+            sudo dpkg -i autondb_*_amd64.deb
+            ```
+            Or use the `.AppImage` (no install needed):
+            ```bash
+            chmod +x autondb_*_amd64.AppImage
+            ./autondb_*_amd64.AppImage
+            ```
+            Or use the standalone CLI: download `autondb-core-x86_64-unknown-linux-gnu`.
+
+            ### macOS
+            Download and open the `.dmg`.
+            Or use the standalone CLI: download `autondb-core-aarch64-apple-darwin` (Apple Silicon) or `autondb-core-x86_64-apple-darwin` (Intel).
+          releaseDraft: false
+          prerelease: false
+
+  # ── Step 3: Publish standalone CLI binaries to the Release ──
+  publish-cli:
+    needs: [build-sidecar, build-tauri]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all CLI binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: cli-*
+          merge-multiple: true
+          path: cli-binaries/
+
+      - name: Upload CLI binaries to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: cli-binaries/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

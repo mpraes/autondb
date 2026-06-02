@@ -24,7 +24,9 @@ All commands are available via the Makefile. Run `make` to see available targets
 | `make build-sidecar` | Build Python sidecar binary | `./build-core.sh` |
 | `make tauri-dev` | Run Tauri in dev mode | `npx tauri dev` |
 | `make tauri-build` | Build Tauri desktop app | `npx tauri build` |
-| `make setup-linux` | Install Linux system deps (first time) | `./setup-linux.sh` |
+| `make setup-linux` | Install ALL dev deps on Debian/Ubuntu (first time) | `./setup-linux.sh` |
+| `make setup-macos` | Install ALL dev deps on macOS (first time) | `./setup-macos.sh` |
+| `make setup-windows` | Install ALL dev deps on Windows (first time) | `powershell -File ./setup-windows.ps1` |
 | `make clean` | Remove caches and build artifacts | — |
 
 **Running a migration**:
@@ -62,6 +64,7 @@ src/
 └── databases/               # Database connectors
     ├── __init__.py
     ├── factory.py            # DIALECTS registry + build_db()
+    ├── identifier.py         # Shared validate_identifier() for SQL injection guard
     ├── idatabase.py         # IDatabase abstract base
     ├── sqlite_db.py         # SQLiteDB   (aiosqlite)
     ├── postgres_db.py       # PostgresDB (asyncpg)
@@ -101,11 +104,11 @@ ui/                           # Frontend (vanilla HTML/CSS/JS)
 - **`PostgresDB.copy_to_table()`** — available as an additional method for high-performance COPY protocol, but not yet wired into MigrationEngine (currently uses bulk INSERT)
 - **Pydantic models** — used for structured validation (dependency already in `pyproject.toml`)
 - **Multi-provider AI** — supports OpenAI, Groq, OpenRouter, Anthropic Claude, and Synthetic (mock) via `providers/` subpackage. Runtime switching via `ai_service.set_provider()`.
-- **Shared constants** — magic values (batch size, pool sizes, max tokens, MB conversion) live in `src/constants.py` and are imported everywhere
+- **Shared constants** — magic values (batch size, pool sizes, max tokens, MB conversion, default target dialect) live in `src/constants.py` and are imported everywhere
 - **DB factory** — `src/databases/factory.py` centralizes `DIALECTS` and `build_db()`, used by both CLI and bridge
 - **JSON extraction** — shared `extract_json()` in `providers/_json_utils.py` strips markdown fences, used by OpenAI and Anthropic providers
-- **Identifier validation** — `_validate_identifier()` guards against SQL injection in table/column names across all DB connectors
-- **`load_dotenv()` called once** — only in `src/services/providers/__init__.py`, which is the module that reads API keys from env vars
+- **Identifier validation** — `validate_identifier()` in `src/databases/identifier.py` guards against SQL injection in table/column names across all DB connectors (previously duplicated in each connector)
+- **Provider env key mapping** — `PROVIDER_ENV_KEYS` in `src/services/providers/__init__.py` centralizes the mapping of provider names to API key env vars, used by both `create_provider()` and the Tauri bridge
 
 ## Dependencies
 
@@ -136,14 +139,18 @@ These rules are **non-negotiable**. Any code that violates them must be fixed be
 2. **Zero code duplication** — if the same function, dict, or logic block appears in 2+ files, extract it to a shared module. Current shared modules:
    - `src/constants.py` — numeric/string defaults
    - `src/databases/factory.py` — `DIALECTS` dict + `build_db()`
+   - `src/databases/identifier.py` — `validate_identifier()`
    - `src/services/providers/_json_utils.py` — `extract_json()`
+   - `src/services/providers/__init__.py` — `PROVIDER_ENV_KEYS` + `create_provider()`
    - If you're about to copy-paste a function, stop and extract it first.
 
 3. **All numeric/string defaults are named constants** — no magic values in code. If a number or string appears in more than one place, or represents a tunable parameter (batch size, pool size, max tokens, timeouts, conversion factors), it **must** live in `src/constants.py` and be imported by name.
 
-4. **SQL identifiers must be validated** — every table name, column name, or other SQL identifier that originates from user input or external data **must** pass through `_validate_identifier()` (defined in each connector) before being interpolated into SQL strings. Parameterized queries (`$1`, `%s`, `?`) are for values; identifiers must be validated separately.
+4. **SQL identifiers must be validated** — every table name, column name, or other SQL identifier that originates from user input or external data **must** pass through `validate_identifier()` (from `src/databases/identifier.py`) before being interpolated into SQL strings. Parameterized queries (`$1`, `%s`, `?`) are for values; identifiers must be validated separately. Never duplicate this function — import it from `identifier.py`.
 
 5. **`load_dotenv()` called exactly once** — only in `src/services/providers/__init__.py`. Never call it in other modules. If you need env vars earlier, restructure the import order instead.
+
+5b. **Provider→env var mapping is centralized** — `PROVIDER_ENV_KEYS` in `src/services/providers/__init__.py` is the single source of truth for which env var holds each provider's API key. Never duplicate this mapping.
 
 6. **Never swallow exceptions silently** — `except Exception: pass` is forbidden. At minimum, log the exception with `logging.warning(..., exc_info=True)`. If the exception is truly expected and harmless, add a comment explaining why.
 
@@ -152,12 +159,16 @@ These rules are **non-negotiable**. Any code that violates them must be fixed be
 8. **Connector guard pattern: `_require_conn()`/`_require_pool()`** — instead of calling `_assert_connected()` followed by `assert self._conn is not None`, use the `_require_conn()`/`_require_pool()` method that returns the typed connection object directly. This eliminates the redundant assert and makes the code both safer and cleaner.
 
 9. **Test coverage is mandatory for new code** — every new function, class, or branch must have a corresponding test. Areas currently lacking coverage (must be addressed before adding more features):
-   - `src/bridge.py` — `analyze()` and `migrate()` functions
-   - `src/main.py` — `run_migration()` and `parse_args()`
-   - `src/services/providers/` — `create_provider()` error paths (unknown provider, missing API key)
-   - `AIService.from_env()` — fallback logic from env vars
+   - `src/bridge.py` — `analyze()` and `migrate()` async functions
+   - `src/main.py` — `run_migration()` async function
    - `PostgresDB.copy_to_table()` — currently untested dead code
    - SQLite integration test using `:memory:` DB
+
+   Recently covered:
+   - `src/main.py` — `parse_args()`
+   - `src/services/providers/` — `create_provider()` error paths
+   - `AIService.from_env()` — fallback logic from env vars
+   - `src/databases/identifier.py` — `validate_identifier()`
 
 10. **Documentation must reflect reality** — when changing code behavior, update `AGENTS.md` and `docs/BACKLOG.md` accordingly. Stale documentation is a bug. In particular:
     - If you add a new module, add it to the Architecture tree

@@ -23,6 +23,13 @@ _DEFAULT_MODELS: dict[str, str] = {
 _GROQ_BASE_URL = "https://api.groq.com/openai/v1"
 _OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
+PROVIDER_ENV_KEYS: dict[str, str] = {
+    "openai": "OPENAI_API_KEY",
+    "groq": "GROQ_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+}
+
 
 def create_provider(name: str, model: str | None = None) -> AIProvider:
     name = name.lower()
@@ -77,6 +84,7 @@ __all__ = [
     "AIProvider",
     "AnthropicProvider",
     "OpenAICompatProvider",
+    "PROVIDER_ENV_KEYS",
     "SyntheticProvider",
     "create_provider",
 ]

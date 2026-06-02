@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# AutonDB — Linux (Debian/Ubuntu) Dev Setup
-# Run once: ./setup-linux.sh
+# AutonDB — macOS Dev Setup
+# Run once: ./setup-macos.sh
 set -euo pipefail
 
 GREEN='\033[0;32m'
@@ -12,22 +12,19 @@ info()  { echo -e "${CYAN}==> $1${NC}"; }
 ok()    { echo -e "${GREEN}    ✓ $1${NC}"; }
 warn()  { echo -e "${YELLOW}    → $1${NC}"; }
 
-# ── System deps ──────────────────────────────────────────────
-info "Installing system dependencies (requires sudo)..."
-sudo apt update
-sudo apt install -y \
-    build-essential \
-    curl \
-    pkg-config \
-    libdbus-1-dev \
-    libgtk-3-dev \
-    libwebkit2gtk-4.1-dev \
-    libayatana-appindicator3-dev \
-    librsvg2-dev \
-    libsoup-3.0-dev \
-    libjavascriptcoregtk-4.1-dev
+# ── Homebrew ─────────────────────────────────────────────────
+if command -v brew &>/dev/null; then
+    ok "Homebrew already installed"
+else
+    info "Installing Homebrew..."
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    eval "$(/opt/homebrew/bin/brew shellenv)" 2>/dev/null || eval "$(/usr/local/bin/brew shellenv)" 2>/dev/null || true
+    ok "Homebrew installed"
+fi
 
-ok "System dependencies installed"
+# ── System deps ──────────────────────────────────────────────
+info "Installing system dependencies..."
+brew install pkg-config
 
 # ── Rust ──────────────────────────────────────────────────────
 if command -v rustc &>/dev/null; then
@@ -44,25 +41,18 @@ if command -v node &>/dev/null; then
     ok "Node already installed: $(node --version)"
 else
     info "Installing Node.js 22 LTS..."
-    curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-    sudo apt install -y nodejs
+    brew install node@22
+    brew link node@22 2>/dev/null || true
     ok "Node installed: $(node --version)"
 fi
 
 # ── Python 3.13 ──────────────────────────────────────────────
-PYTHON_VERSION="3.13"
-if python3 --version 2>/dev/null | grep -q "$PYTHON_VERSION"; then
-    ok "Python $PYTHON_VERSION already installed: $(python3 --version)"
+if python3.13 --version &>/dev/null; then
+    ok "Python 3.13 already installed: $(python3.13 --version)"
 else
-    info "Installing Python $PYTHON_VERSION..."
-    sudo apt install -y software-properties-common
-    sudo add-apt-repository -y ppa:deadsnakes/ppa 2>/dev/null || {
-        warn "PPA not available (non-Ubuntu). Trying deadsnakes via pipx..."
-    }
-    sudo apt install -y python3.13 python3.13-venv python3.13-dev 2>/dev/null || {
-        warn "apt install failed. Installing via uv python..."
-    }
-    ok "Python installed"
+    info "Installing Python 3.13..."
+    brew install python@3.13
+    ok "Python installed: $(python3.13 --version)"
 fi
 
 # ── uv ────────────────────────────────────────────────────────
@@ -70,9 +60,7 @@ if command -v uv &>/dev/null; then
     ok "uv already installed: $(uv --version)"
 else
     info "Installing uv..."
-    curl -LsSf https://astral.sh/uv/install.sh | sh
-    source "$HOME/.cargo/env" 2>/dev/null || true
-    export PATH="$HOME/.local/bin:$PATH"
+    brew install uv
     ok "uv installed: $(uv --version)"
 fi
 
@@ -87,4 +75,4 @@ echo ""
 info "All done! Next steps:"
 echo -e "    ${YELLOW}./build-core.sh${NC}    # Build Python sidecar binary"
 echo -e "    ${YELLOW}npx tauri dev${NC}       # Run in dev mode"
-echo -e "    ${YELLOW}npx tauri build${NC}     # Build production app (.deb/.AppImage)"
+echo -e "    ${YELLOW}npx tauri build${NC}     # Build production app (.dmg)"

@@ -22,7 +22,7 @@ from src.engine.migration import MigrationEngine
 from src.engine.kpi_tracker import KPITracker
 from src.services.ai_service import AIService
 from src.services.models import SchemaMapping
-from src.services.providers import create_provider
+from src.services.providers import PROVIDER_ENV_KEYS, create_provider
 
 
 def _emit(event_type: str, payload: Any) -> None:
@@ -36,13 +36,7 @@ def _build_ai_from_config(config: dict) -> AIService:
     model = config.get("ai_model")
 
     if config.get("ai_key"):
-        key_env = {
-            "openai": "OPENAI_API_KEY",
-            "groq": "GROQ_API_KEY",
-            "openrouter": "OPENROUTER_API_KEY",
-            "anthropic": "ANTHROPIC_API_KEY",
-        }
-        env_var = key_env.get(provider_name, "OPENAI_API_KEY")
+        env_var = PROVIDER_ENV_KEYS.get(provider_name, "OPENAI_API_KEY")
         os.environ[env_var] = config["ai_key"]
 
     provider = create_provider(provider_name, model)

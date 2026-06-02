@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator
 import aiosqlite
 
 from src.constants import DEFAULT_BATCH_SIZE
+from src.databases.identifier import validate_identifier
 from src.databases.idatabase import ColumnSchema, IDatabase, Row, TableSchema
 
 _SQLITE_TYPE_MAP: dict[str, str] = {
@@ -14,12 +15,6 @@ _SQLITE_TYPE_MAP: dict[str, str] = {
     "BLOB": "BLOB",
     "NUMERIC": "NUMERIC",
 }
-
-
-def _validate_identifier(name: str) -> str:
-    if not name or not all(c.isalnum() or c == "_" for c in name):
-        raise ValueError(f"Invalid SQL identifier: '{name}'")
-    return name
 
 
 class SQLiteDB(IDatabase):
@@ -57,7 +52,7 @@ class SQLiteDB(IDatabase):
 
         result: list[TableSchema] = []
         for table_name in tables:
-            _validate_identifier(table_name)
+            validate_identifier(table_name)
             cursor = await conn.execute(f'PRAGMA table_info("{table_name}")')
             columns_raw = await cursor.fetchall()
             columns: list[ColumnSchema] = []
@@ -80,7 +75,7 @@ class SQLiteDB(IDatabase):
         self, table: str, batch_size: int = DEFAULT_BATCH_SIZE
     ) -> AsyncIterator[list[Row]]:
         conn = self._require_conn()
-        _validate_identifier(table)
+        validate_identifier(table)
 
         cursor = await conn.execute(f'SELECT * FROM "{table}"')
         batch: list[Row] = []
@@ -95,14 +90,14 @@ class SQLiteDB(IDatabase):
 
     async def bulk_insert(self, table: str, rows: list[Row]) -> None:
         conn = self._require_conn()
-        _validate_identifier(table)
+        validate_identifier(table)
 
         if not rows:
             return
 
         columns = list(rows[0].values.keys())
         for c in columns:
-            _validate_identifier(c)
+            validate_identifier(c)
         placeholders = ", ".join("?" for _ in columns)
         col_names = ", ".join(f'"{c}"' for c in columns)
         sql = f'INSERT INTO "{table}" ({col_names}) VALUES ({placeholders})'
@@ -122,7 +117,7 @@ class SQLiteDB(IDatabase):
 
     async def get_row_count(self, table: str) -> int:
         conn = self._require_conn()
-        _validate_identifier(table)
+        validate_identifier(table)
 
         cursor = await conn.execute(f'SELECT COUNT(*) FROM "{table}"')
         row = await cursor.fetchone()

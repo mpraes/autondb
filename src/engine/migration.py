@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 
 from src.constants import DEFAULT_BATCH_SIZE
@@ -7,6 +8,8 @@ from src.databases.idatabase import IDatabase, Row
 from src.engine.integrity_audit import IntegrityAuditReport, run_integrity_audit
 from src.engine.kpi_tracker import KPITracker
 from src.services.models import ColumnMapping, SchemaMapping, TableMapping
+
+_logger = logging.getLogger(__name__)
 
 
 class MigrationError(Exception):
@@ -63,9 +66,7 @@ class MigrationEngine:
             try:
                 await self._target.enable_constraints()
             except Exception:
-                import logging
-
-                logging.getLogger(__name__).warning(
+                _logger.warning(
                     "Failed to re-enable constraints after error", exc_info=True
                 )
             raise MigrationError(f"Migration failed: {exc}") from exc

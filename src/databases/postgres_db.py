@@ -10,6 +10,7 @@ from src.constants import (
     DEFAULT_POOL_MIN_SIZE,
     DEFAULT_POOL_MAX_SIZE,
 )
+from src.databases.identifier import validate_identifier
 from src.databases.idatabase import ColumnSchema, IDatabase, Row, TableSchema
 
 _PG_TYPE_MAP: dict[str, str] = {
@@ -33,12 +34,6 @@ _PG_TYPE_MAP: dict[str, str] = {
     "serial": "SERIAL",
     "bigserial": "BIGSERIAL",
 }
-
-
-def _validate_identifier(name: str) -> str:
-    if not name or not all(c.isalnum() or c == "_" for c in name):
-        raise ValueError(f"Invalid SQL identifier: '{name}'")
-    return name
 
 
 class PostgresDB(IDatabase):
@@ -79,7 +74,7 @@ class PostgresDB(IDatabase):
             result: list[TableSchema] = []
             for table_row in tables:
                 table_name = table_row["table_name"]
-                _validate_identifier(table_name)
+                validate_identifier(table_name)
                 columns_raw = await conn.fetch(
                     "SELECT column_name, data_type, is_nullable, column_default "
                     "FROM information_schema.columns "
@@ -116,7 +111,7 @@ class PostgresDB(IDatabase):
         self, table: str, batch_size: int = DEFAULT_BATCH_SIZE
     ) -> AsyncIterator[list[Row]]:
         pool = self._require_pool()
-        _validate_identifier(table)
+        validate_identifier(table)
 
         async with pool.acquire() as conn:
             cursor = await conn.cursor(f'SELECT * FROM "{table}"')
@@ -128,14 +123,14 @@ class PostgresDB(IDatabase):
 
     async def bulk_insert(self, table: str, rows: list[Row]) -> None:
         pool = self._require_pool()
-        _validate_identifier(table)
+        validate_identifier(table)
 
         if not rows:
             return
 
         columns = list(rows[0].values.keys())
         for c in columns:
-            _validate_identifier(c)
+            validate_identifier(c)
         col_names = ", ".join(f'"{c}"' for c in columns)
         placeholders = ", ".join(f"${i + 1}" for i in range(len(columns)))
         sql = f'INSERT INTO "{table}" ({col_names}) VALUES ({placeholders})'
@@ -169,7 +164,7 @@ class PostgresDB(IDatabase):
             data: List of tuples matching column order.
         """
         pool = self._require_pool()
-        _validate_identifier(table)
+        validate_identifier(table)
 
         async with pool.acquire() as conn:
             await conn.copy_records_to_table(
@@ -180,7 +175,7 @@ class PostgresDB(IDatabase):
 
     async def get_row_count(self, table: str) -> int:
         pool = self._require_pool()
-        _validate_identifier(table)
+        validate_identifier(table)
 
         async with pool.acquire() as conn:
             row = await conn.fetchrow(f'SELECT COUNT(*) AS cnt FROM "{table}"')

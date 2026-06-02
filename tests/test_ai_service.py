@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 
 import pytest
 import pytest_asyncio
@@ -186,3 +187,42 @@ class TestAIServiceWithSynthetic:
         mapping = await ai.map_schema(sample_schema, "sqlite", "postgresql")
         assert mapping.tables[0].columns[0].target_type == "BIGSERIAL"
         assert len(mapping.warnings) == 1
+
+
+class TestAIServiceFromEnv:
+    def test_from_env_with_synthetic(self) -> None:
+        os.environ["AI_PROVIDER"] = "synthetic"
+        try:
+            ai = AIService.from_env(provider_name="synthetic")
+            assert ai.provider_name == "synthetic"
+        finally:
+            os.environ.pop("AI_PROVIDER", None)
+
+    def test_from_env_default_provider(self) -> None:
+        original = os.environ.pop("AI_PROVIDER", None)
+        try:
+            os.environ["OPENAI_API_KEY"] = "test-key"
+            ai = AIService.from_env()
+            assert ai.provider_name == "openai"
+        finally:
+            os.environ.pop("OPENAI_API_KEY", None)
+            if original is not None:
+                os.environ["AI_PROVIDER"] = original
+
+    def test_from_env_model_from_env(self) -> None:
+        os.environ["AI_MODEL"] = "gpt-3.5-turbo"
+        os.environ["OPENAI_API_KEY"] = "test-key"
+        try:
+            ai = AIService.from_env(provider_name="openai")
+            assert ai.model == "gpt-3.5-turbo"
+        finally:
+            os.environ.pop("AI_MODEL", None)
+            os.environ.pop("OPENAI_API_KEY", None)
+
+    def test_from_env_model_override(self) -> None:
+        os.environ["OPENAI_API_KEY"] = "test-key"
+        try:
+            ai = AIService.from_env(provider_name="openai", model="gpt-4o-mini")
+            assert ai.model == "gpt-4o-mini"
+        finally:
+            os.environ.pop("OPENAI_API_KEY", None)

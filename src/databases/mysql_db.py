@@ -9,6 +9,7 @@ from src.constants import (
     DEFAULT_POOL_MIN_SIZE,
     DEFAULT_POOL_MAX_SIZE,
 )
+from src.databases.identifier import validate_identifier
 from src.databases.idatabase import ColumnSchema, IDatabase, Row, TableSchema
 
 _MYSQL_TYPE_MAP: dict[str, str] = {
@@ -36,12 +37,6 @@ _MYSQL_TYPE_MAP: dict[str, str] = {
     "binary": "BINARY",
     "varbinary": "VARBINARY",
 }
-
-
-def _validate_identifier(name: str) -> str:
-    if not name or not all(c.isalnum() or c == "_" for c in name):
-        raise ValueError(f"Invalid SQL identifier: '{name}'")
-    return name
 
 
 class MySQLDB(IDatabase):
@@ -87,7 +82,7 @@ class MySQLDB(IDatabase):
 
             result: list[TableSchema] = []
             for table_name in tables:
-                _validate_identifier(table_name)
+                validate_identifier(table_name)
                 async with conn.cursor() as cur:
                     await cur.execute(
                         "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, COLUMN_DEFAULT, COLUMN_KEY "
@@ -116,7 +111,7 @@ class MySQLDB(IDatabase):
         self, table: str, batch_size: int = DEFAULT_BATCH_SIZE
     ) -> AsyncIterator[list[Row]]:
         pool = self._require_pool()
-        _validate_identifier(table)
+        validate_identifier(table)
 
         async with pool.acquire() as conn:
             async with conn.cursor(aiomysql.DictCursor) as cur:
@@ -129,14 +124,14 @@ class MySQLDB(IDatabase):
 
     async def bulk_insert(self, table: str, rows: list[Row]) -> None:
         pool = self._require_pool()
-        _validate_identifier(table)
+        validate_identifier(table)
 
         if not rows:
             return
 
         columns = list(rows[0].values.keys())
         for c in columns:
-            _validate_identifier(c)
+            validate_identifier(c)
         col_names = ", ".join(f"`{c}`" for c in columns)
         placeholders = ", ".join("%s" for _ in columns)
         sql = f"INSERT INTO `{table}` ({col_names}) VALUES ({placeholders})"
@@ -159,7 +154,7 @@ class MySQLDB(IDatabase):
 
     async def get_row_count(self, table: str) -> int:
         pool = self._require_pool()
-        _validate_identifier(table)
+        validate_identifier(table)
 
         async with pool.acquire() as conn:
             async with conn.cursor() as cur:

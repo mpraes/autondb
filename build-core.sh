@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# Build the AutonDB Python core binary and copy it to Tauri's sidecar directory.
+# Build the AutonDB Python core binary ONCE, then copy to Tauri's sidecar directory.
+# The same binary is used for:
+#   1. Standalone CLI (dist/autondb-core)
+#   2. Tauri sidecar (src-tauri/binaries/)
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -36,4 +39,9 @@ cp "dist/autondb-core.exe" "$SIDE_CAR_DIR/$TARGET" 2>/dev/null || \
 
 chmod +x "$SIDE_CAR_DIR/$TARGET"
 echo "==> Core binary copied to $SIDE_CAR_DIR/$TARGET"
-echo "==> Done! Run 'npx tauri dev' or 'npx tauri build' to build the desktop app."
+echo ""
+echo "==> Same binary available for standalone CLI at dist/autondb-core"
+echo "==> Done! Run:"
+echo "    ./dist/autondb-core --help        # Use as standalone CLI"
+echo "    npx tauri dev                      # Run Tauri in dev mode (reuses sidecar)"
+echo "    npx tauri build                    # Build production app (reuses sidecar)"

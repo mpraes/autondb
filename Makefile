@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help install install-dev test lint run run-migrate build-sidecar tauri-dev tauri-stop tauri-build setup-linux clean
+.PHONY: help install install-dev test lint run run-migrate build-sidecar tauri-dev tauri-stop tauri-build setup-linux setup-macos setup-windows clean
 
 help:
 	@echo "AutonDB — available targets:"
@@ -14,7 +14,9 @@ help:
 	@echo "  make tauri-dev         Run Tauri in dev mode"
 	@echo "  make tauri-stop        Stop Tauri dev server"
 	@echo "  make tauri-build      Build Tauri desktop app"
-	@echo "  make setup-linux      Install Linux system deps (first time only)"
+	@echo "  make setup-linux      Install ALL dev deps on Debian/Ubuntu (first time)"
+	@echo "  make setup-macos      Install ALL dev deps on macOS (first time)"
+	@echo "  make setup-windows    Install ALL dev deps on Windows (first time)"
 	@echo "  make clean            Remove caches and build artifacts"
 
 install:
@@ -56,6 +58,12 @@ tauri-build: build-sidecar
 
 setup-linux:
 	./setup-linux.sh
+
+setup-macos:
+	./setup-macos.sh
+
+setup-windows:
+	powershell -ExecutionPolicy Bypass -File ./setup-windows.ps1
 
 clean:
 	rm -rf .pytest_cache __pycache__ src/__pycache__ src/**/__pycache__

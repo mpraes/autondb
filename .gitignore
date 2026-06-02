@@ -75,6 +75,5 @@ src-tauri/target/
 src-tauri/binaries/
 
 # AI Settings
-AGENTS.md
-.crush
-.cursor
+.crush/
+.cursor/
